@@ -1,0 +1,9 @@
+[submodule ".\\go\\src\\github.com\\juliusl\\shinsu"]
+	path = .\\go\\src\\github.com\\juliusl\\shinsu
+	url = https://github.com/juliusl/shinsu.git
+[submodule "deps/cimgui"]
+	path = deps/cimgui
+	url = https://github.com/cimgui/cimgui
+[submodule "deps/cimnodes"]
+	path = deps/cimnodes
+	url = https://github.com/cimgui/cimnodes
