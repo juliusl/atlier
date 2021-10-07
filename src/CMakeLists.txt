@@ -5,32 +5,32 @@ set(CMAKE_SHARED_LIBRARY_PREFIX "")
 endif(WIN32)
 #general settings
 
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../deps/cimgui/imgui/backends)
-	set(BAKENDS_FOLDER "../deps/cimgui/imgui/backends/")
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../deps/imgui/backends)
+	set(BAKENDS_FOLDER "../deps/imgui/backends/")
 else()
-	set(BAKENDS_FOLDER "../deps/cimgui/imgui/examples/")
+	set(BAKENDS_FOLDER "../deps/imgui/examples/")
 endif()
 
-if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../deps/cimgui/imgui/imgui_tables.cpp)
-	set(TABLES_SOURCE "../deps/cimgui/imgui/imgui_tables.cpp")
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../deps/imgui/imgui_tables.cpp)
+	set(TABLES_SOURCE "../deps/imgui/imgui_tables.cpp")
 else()
 	set(TABLES_SOURCE "")
 endif()
 
 include_directories(../deps/cimgui/)
 include_directories(../deps/cimnodes/)
-include_directories(../deps/cimgui/imgui/)
-include_directories(../deps/cimnodes/imnodes/)
+include_directories(../deps/imgui/)
+include_directories(../deps/imnodes/)
 add_definitions("-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS=1")
 
 include_directories(../)
 set(IMGUI_SOURCES ../deps/cimgui/cimgui.cpp 
-../deps/cimgui/imgui/imgui.cpp 
-../deps/cimgui/imgui/imgui_draw.cpp 
-../deps/cimgui/imgui/imgui_demo.cpp 
-../deps/cimgui/imgui/imgui_widgets.cpp
+../deps/imgui/imgui.cpp 
+../deps/imgui/imgui_draw.cpp 
+../deps/imgui/imgui_demo.cpp 
+../deps/imgui/imgui_widgets.cpp
 ../deps/cimnodes/cimnodes.cpp
-../deps/cimnodes/imnodes/imnodes.cpp
+../deps/imnodes/imnodes.cpp
 ${TABLES_SOURCE} 
 )
 
@@ -51,14 +51,14 @@ option(IMGUI_FREETYPE "add Freetype2" OFF)
 if(IMGUI_FREETYPE)
 	FIND_PACKAGE(freetype REQUIRED PATHS ${FREETYPE_PATH})
 	list(APPEND IMGUI_LIBRARIES freetype)
-	list(APPEND IMGUI_SOURCES ../deps/cimgui/imgui/misc/freetype/imgui_freetype.cpp)
+	list(APPEND IMGUI_SOURCES ../deps/imgui/misc/freetype/imgui_freetype.cpp)
 	add_definitions("-DCIMGUI_FREETYPE=1")
 endif(IMGUI_FREETYPE)
 
 # Setup OpenGL3
 list(APPEND IMGUI_SOURCES ${BAKENDS_FOLDER}imgui_impl_opengl3.cpp)
 list(APPEND IMGUI_SOURCES ./cimgui_extras.cpp)
-include_directories(../deps/cimgui/imgui/examples/libs/gl3w)
+include_directories(../deps/imgui/examples/libs/gl3w)
 if(WIN32)
        list(APPEND IMGUI_LIBRARIES opengl32)
 else(WIN32)#Unix

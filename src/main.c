@@ -1,8 +1,8 @@
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
-#include "cimgui.h"
+#include <cimgui.h>
 #include <cimnodes.h>
+#include <cimgui_impl.h>
 #include "cimgui_extras.h"
-#include "cimgui_impl.h"
 #include <stdio.h>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
@@ -11,7 +11,6 @@
 #endif
 #include <GL/gl.h>
 #include <GL/glu.h>
-
 #include <git2.h>
 
 #ifdef IMGUI_HAS_IMSTR
@@ -76,7 +75,7 @@ int main(int argc, char* argv[])
 
 	git_libgit2_init();
 
-	repo_path = "C:\\Users\\liuju\\src\\atlier\\deps\\cimgui";
+	repo_path = "C:\\Users\\juliusl\\src\\atlier\\deps\\cimgui";
 	error = git_repository_open(&repo, repo_path);
 	check_error(error, "opening repository");
 

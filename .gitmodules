@@ -1,5 +1,5 @@
-[submodule ".\\go\\src\\github.com\\juliusl\\shinsu"]
-	path = .\\go\\src\\github.com\\juliusl\\shinsu
+[submodule "go/src/github.com/juliusl/shinsu"]
+	path = go/src/github.com/juliusl/shinsu
 	url = https://github.com/juliusl/shinsu.git
 [submodule "deps/cimgui"]
 	path = deps/cimgui
@@ -7,3 +7,10 @@
 [submodule "deps/cimnodes"]
 	path = deps/cimnodes
 	url = https://github.com/cimgui/cimnodes
+	branch = master
+[submodule "deps/imgui"]
+	path = deps/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "deps/imnodes"]
+	path = deps/imnodes
+	url = https://github.com/Nelarius/imnodes.git
