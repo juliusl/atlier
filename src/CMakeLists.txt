@@ -1,8 +1,11 @@
 Project(atlier)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 cmake_minimum_required(VERSION 3.21)
 if(WIN32) #to mingw work as all the others
 set(CMAKE_SHARED_LIBRARY_PREFIX "")
 endif(WIN32)
+
 #general settings
 
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../deps/imgui/backends)
