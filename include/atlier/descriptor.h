@@ -4,26 +4,40 @@
 
 #include "types.h"
 
+// Types of descriptors that this descriptor can represent
+enum atlier_descriptor_type
+{
+    ATLIER_DESCRIPTOR_STRING = 0x01,
+    ATLIER_DESCRIPTOR_INTEGER = 0x02,
+    ATLIER_DESCRIPTOR_ADDRESS = 0x03,
+};
 
-struct atlier_descriptor {
+// Data field of a descriptor
+union atlier_descriptor_data
+{
+    atlier_address *address;
+    atlier_string *string;
+    int integer;
+};
+
+// Descriptor definition
+struct atlier_descriptor
+{
     atlier_string *name;
-    union data
-    {
-        atlier_string *string; 
-        atlier_resource *resource;
-        int integer_data;
-    };
+    atlier_descriptor_type type;
+    atlier_descriptor_data *data;
 };
 
 // Creates an empty descriptor
-int atlier_descriptor_create_empty(atlier_descriptor *desc, const char* name);
+int atlier_descriptor_create_empty(atlier_descriptor *desc, const char *name);
 
 // Sets the string value of the descriptor
-int atlier_descriptor_set_string(atlier_descriptor *desc, const char* value);
+int atlier_descriptor_set_string(atlier_descriptor *desc, const char *value);
 
-// Sets the integer value of the descriptor 
-int atlier_descriptor_set_integer(atlier_descriptor *desc, int value);
+// Sets the integer value of the descriptor
+int atlier_descriptor_set_integer(atlier_descriptor *desc, const int value);
 
-// Sets the resource selector value of the descriptor 
-int atlier_descriptor_set_resource_selector(atlier_descriptor *desc, const char *mediatype, const char *uri);
+// Set the value of this descriptor to a pointer of an address
+int atlier_descriptor_set_address(atlier_descriptor *descriptor, atlier_address *address);
+
 #endif

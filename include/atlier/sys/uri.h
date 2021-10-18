@@ -11,7 +11,7 @@ struct atlier_sys_uri {
         char *password;
     };
     char *raw_query;
-    char *segment;
+    char *fragment;
 };
 
 # endif
