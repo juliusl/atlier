@@ -7,5 +7,7 @@ struct atlier_sys_length_string {
     char data[];
 };
 
+int atlier_sys_length_string_from_c_string(char *str);
+
 # endif
 
