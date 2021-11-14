@@ -1,3 +1,7 @@
+mod graph;
+use graph::editor::{self};
+
+
 fn main() {
-    println!("Hello, world!");
+   editor::test();
 }

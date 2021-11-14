@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 imnodes = { path = "./imnodes-rs" }
 derive = { path = "./derive" }
+specs = { version = "0.17.0", features = ["default", "derive"] }

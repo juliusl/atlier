@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 atlier = {path="../../"}
+specs = { version = "0.17.0", features = ["default", "derive"] }

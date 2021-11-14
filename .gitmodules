@@ -14,3 +14,6 @@
 [submodule "deps/imnodes"]
 	path = deps/imnodes
 	url = https://github.com/Nelarius/imnodes.git
+[submodule "imnodes-rs"]
+	path = imnodes-rs
+	url = https://github.com/benmkw/imnodes-rs.git
