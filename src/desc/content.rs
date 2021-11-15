@@ -1,83 +1,65 @@
-use crate::{Graph, desc::*};
+use crate::{desc::*};
 
-pub struct ContentStore<N, V> 
+#[derive(Debug)]
+pub struct ContentStore<N>
 where
-    N: Node, 
-    V: Debug + Default + Clone + Any
+    N: Node,
 {
-    typeid: std::any::TypeId,
-    items: HashMap<ContentId, V>,
-    references: HashMap<NodeId<N>, ContentId>,
+    items: HashMap<ContentId, N::V>,
 }
 
-impl<N, V> Default for ContentStore<N, V> 
+impl<N> Default for ContentStore<N>
 where
-    N: Node, 
-    V: Debug + Default + Clone + Any
+    N: Node,
 {
     fn default() -> Self {
-        ContentStore::<N, V> {
-            typeid: V::default().type_id(),
+        ContentStore::<N> {
             items: HashMap::new(),
-            references: HashMap::new()
         }
     }
 }
 
-impl<N, V> Listener for ContentStore<N, V>
+impl<N> Listener for ContentStore<N>
 where
-    N: Node, 
-    V: Debug + Default + Clone + Any,
+    N: Node,
 {
-    type Value = V;
+    type Value = N::V;
 
     fn listen(&self, update: ContentUpdate<Self::Value>) {
         println!("{:?}", update)
     }
 }
 
-impl<N, V> Store for ContentStore<N, V>
+impl<N> Store<N> for ContentStore<N>
 where
-    Self: Listener<Value = V>,
-    N: Node, 
-    V: Debug + Default + Clone + Any,
+    Self: Listener<Value = N::V>,
+    N: Node,
 {
-    type N = N;
-    type Value = V; 
-
-    fn get(&self, id: ContentId) -> Option<Self::Value> {
+    fn get(&self, id: ContentId) -> Option<N::V> {
         if let Some(v) = self.items.get(&id) {
-            return Some(v.clone())
+            return Some(v.clone());
         } else {
             None
         }
     }
 
-    fn set(&mut self, content_id: ContentId, v: &Self::Value) {
-        if v.type_id() == self.typeid {
-            if let Some(prev) = self.items.insert(content_id, v.clone()) {
-                let update = ContentUpdate::<Self::Value> { 
-                    content_id: content_id, 
-                    typeid: self.typeid, 
-                    pre: prev, 
-                    update: v.clone() };
+    fn set(&mut self, content_id: ContentId, v: &N::V) {
+        if let Some(prev) = self.items.insert(content_id, v.clone()) {
+            let update = ContentUpdate::<N::V> {
+                content_id: content_id,
+                pre: prev,
+                update: v.clone(),
+            };
 
+            self.listen(update);
+        } else {
+            let init = ContentUpdate::<N::V> {
+                content_id: content_id,
+                pre: N::V::default(),
+                update: v.clone(),
+            };
 
-                self.listen(update);
-            }
+            self.listen(init);
         }
     }
 }
-
-impl<N, V> Graph for ContentStore<N, V> 
-where
-    N: Node, 
-    V: Debug + Default + Clone + Any,
-    {
-        type N = N;
-        type Link = V;
-
-        fn get_links(&self, id: NodeId<Self::N>) -> Vec<Self::Link> {
-            todo!()
-        }
-    }

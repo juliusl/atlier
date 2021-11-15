@@ -87,13 +87,11 @@ impl Output {
         let ty= &self.ty;
 
         quote! {
-            Artifact::<Self::N, Self::V>::new_output(
+            Artifact::<Self::N>::new_output(
                 self.#field_name.clone(), 
                 #ident_str.to_string(), 
-                ContentId { 
-                    id: 0, 
-                    typeid: #ty::default().type_id()
-                }),
+                #ty::default().type_id(),
+            ),
         }
     }
 }

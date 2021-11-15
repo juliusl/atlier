@@ -7,6 +7,7 @@ pub use editor::*;
 use std::fmt::Debug;
 use std::any::Any;
 use std::hash::Hash;
+use std::ops::Deref;
 
 
 #[derive(Transition, Node, Clone, Debug)]
@@ -33,10 +34,10 @@ impl AddOutputs for Add {
     }
 }
 
-
 #[derive(Clone, Debug)]
 pub enum Data {
     Initial,
+    Add(Add),
 }
 
 impl Default for Data {
@@ -45,14 +46,18 @@ impl Default for Data {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Renderer)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Renderer)]
 #[render(Add, Data)]
 pub struct Editor {
-    id: i32
+    id: u64
+}
+
+impl Component for Data {
+    type Storage = DenseVecStorage<Self>;
 }
 
 impl Editor {
-    fn next_id(&mut self) -> i32 {
+    fn next_id(&mut self) -> u64 {
         let next = self.id;
 
         self.id = next+1; 
@@ -71,8 +76,10 @@ impl Default for Editor {
 
 #[derive(Debug, Clone)]
 pub enum EditorData {
-    Labels, 
     Empty,
+    Labels, 
+    Integer(i32),
+    Add(AddOutput),
 }
 
 impl Default for EditorData {
@@ -82,10 +89,12 @@ impl Default for EditorData {
 }
 
 impl Node for Editor {
-    type NodeId = i32;
-    type InputId = i32;
-    type OutputId = i32;
-    type AttributeId = i32;
+    type NodeId = u64;
+    type InputId = u64;
+    type OutputId = u64;
+    type AttributeId = u64;
+    type K = ContentId; 
+    type V = EditorData;
     type Data = EditorData;
 
     fn next_node_id(&mut self) -> Self::NodeId {

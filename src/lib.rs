@@ -5,6 +5,7 @@ use prelude::*;
 
 pub use derive::*;
 
+use std::ops::BitXor;
 use std::{any::Any, fmt::Debug};
 use std::hash::Hash;
 
@@ -34,11 +35,13 @@ pub trait Transition : Debug + Default + Clone + Any {
 // dimensional space in order to simplify the operations needed to resolve the expression, 
 // and then transforming the result back into it's source domain.
 
-pub trait Node: Hash + PartialEq + Eq {
-    type NodeId: Clone + Debug + Hash + PartialEq + Eq;
-    type InputId: Clone + Debug + Hash + PartialEq + Eq;
-    type OutputId: Clone + Debug + Hash + PartialEq + Eq;
-    type AttributeId: Clone + Debug + Hash + PartialEq + Eq;
+pub trait Node: Clone + Debug + Hash + PartialEq + Eq {
+    type NodeId: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>;
+    type InputId: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>;
+    type OutputId: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>;
+    type AttributeId: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>;
+    type K: IdType;
+    type V: Default + Debug + Clone + Any;
     type Data: Debug + Default + Clone + Any;
 
     fn next_node_id(&mut self) -> Self::NodeId;
@@ -49,28 +52,28 @@ pub trait Node: Hash + PartialEq + Eq {
 
 // When implemented, this will be called by the renderer system
 // This allows client code to swap out rendering backends
-pub trait Renderer : Node {
+pub trait Renderer<'a, D> : Node {
     type Artifact: State<N = Self>;
 
-    fn render(&self, artifact: &Self::Artifact);
+    fn render(&self, content: &ContentStore<Self>, data: &D, artifact: &Self::Artifact);
 }
 
-pub trait Graph {
-    type N: Node;
-    type Link;
+// When implemented, this will be called by the renderer system
+// This allows client code to swap out rendering backends
+pub trait Updater<'a, D> : Node {
+    type Artifact: State<N = Self>;
 
-    fn get_links(&self, id: NodeId<Self::N>) -> Vec<Self::Link>;
+    fn update(&self, data: &D, artifact: &Self::Artifact);
 }
 
 // This trait gets generated for nodes if they are used as entities 
 pub trait State {
     type N: Node + Hash + Eq + PartialEq + Sync;
-    type V: Default + Debug + Clone + Any;
     type Inputs;
     type Outputs;
     type Attributes;
 
-    fn get_nodeid(&self) -> NodeId<Self::N>;
+    fn get_nodeid(&self) -> <Self::N as Node>::NodeId;
     fn get_inputs(&self) -> Self::Inputs;
     fn get_outputs(&self) -> Self::Outputs;
     fn get_attributes(&self) -> Self::Attributes;

@@ -25,6 +25,11 @@ pub fn derive_node(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 }
 
 #[proc_macro_derive(Renderer, attributes(render))]
+// First, you should implement the Renderer trait with the type of Data
+// that you would like to render. 
+// Then you can add this derive attribute along with a `#[render()]` attribute.
+// The render attributes will generate the data pipeline for the Transition struct, which you specify in the first argument
+// the second argument is the component type you would like passed to your render function.
 pub fn derive_render(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let parsed: syn::DeriveInput = syn::parse_macro_input!(input);
 
@@ -136,13 +141,11 @@ impl ParsedStruct {
                 let field_name = format_ident!("{}", format!("{}", ident).to_foreign_key());
 
                 quote! {
-                    Artifact::<Self::N, Self::V>::new_input(
+                    Artifact::<Self::N>::new_input(
                         self.#field_name.clone(),
                         #ident_str.to_string(),
-                        ContentId {
-                            id: 0, 
-                            typeid: #ty::default().type_id()
-                        }),
+                        #ty::default().type_id(),
+                    ),
                 }
             },
             |_, _| {
@@ -158,14 +161,11 @@ impl ParsedStruct {
                 let ident_str = format!("{}", ident);
                 let field_name = format_ident!("{}", format!("{}", ident).to_foreign_key());
                 quote! {
-                        Artifact::<Self::N, Self::V>::new_attribute(
+                        Artifact::<Self::N>::new_attribute(
                             self.#field_name.clone(),
                             #ident_str.to_string(),
-                            ContentId {
-                                id: 0, 
-                                typeid: #ty::default().type_id()
-                            }),
-
+                            #ty::default().type_id(),
+                        ),
                 }
             },
         );
@@ -187,64 +187,58 @@ impl ParsedStruct {
 
         let gen = quote! {
             #[derive(Debug, Hash, Eq, PartialEq)]
-            pub struct #node_struct<N, V>
+            pub struct #node_struct<N>
             where
                 N: Node + Hash + Eq + PartialEq + Sync,
-                V: Default + Debug + Clone + Any,
             {
                 node_id: N::NodeId,
                 #( #field_defs, )*
                 #outputs
-                phantom: std::marker::PhantomData<V>
             }
 
-            impl<N, V> From<N> for #node_struct<N, V>
+            impl<N> From<N> for #node_struct<N>
             where
                 N: Node + Hash + Eq + PartialEq + Sync,
-                V: Default + Debug + Clone + Any,
             {
                 fn from(mut node: N) -> Self {
                     Self {
                         node_id: node.next_node_id(),
                         #( #new_fields, )*
                         #outputs_new
-                        phantom: std::marker::PhantomData::default(),
                     }
                 }
             }
 
 
-            impl<N, V> State for #node_struct<N, V>
+            impl<N> State for #node_struct<N>
             where
                 N: Node + Hash + Eq + PartialEq + Sync,
-                V: Default + Debug + Clone + Any,
             {
                 type N = N;
-                type V = V;
-                type Inputs = ArtifactCollection::<Self::N, Self::V>;
-                type Outputs = ArtifactCollection::<Self::N, Self::V>;
-                type Attributes = ArtifactCollection::<Self::N, Self::V>;
+                type Inputs = ArtifactCollection::<Self::N>;
+                type Outputs = ArtifactCollection::<Self::N>;
+                type Attributes = ArtifactCollection::<Self::N>;
 
-                fn get_nodeid(&self) -> NodeId<Self::N> {
-                    NodeId::<Self::N> { id: self.node_id.clone() }
+                fn get_nodeid(&self) -> N::NodeId {
+                    self.node_id.clone()
                 }
 
                 fn get_inputs(&self) -> Self::Inputs {
-                    ArtifactCollection::<Self::N, Self::V>{
+                    ArtifactCollection::<Self::N>{
                         elems: vec![
                             #( #input_artifacts )*
                         ]}
                 }
 
                 fn get_outputs(&self) -> Self::Outputs {
-                    ArtifactCollection::<Self::N, Self::V>{
+                    ArtifactCollection::<Self::N>{
                         elems: vec![
                              #output_artifact
                         ]}
                 }
 
                 fn get_attributes(&self) -> Self::Attributes {
-                    ArtifactCollection::<Self::N, Self::V>{
+                    ArtifactCollection::<Self::N>{
                         elems: vec![
                             #( #attribute_artifacts )*
                         ]}
@@ -303,7 +297,7 @@ impl ParsedStruct {
 
         // Finally, we compose the resulting streams into it's final output form
         let gen = quote! {
-            #[derive(Debug)]
+            #[derive(Clone, Debug)]
             pub enum #enum_name {
                 #enum_items
             }
