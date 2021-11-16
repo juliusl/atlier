@@ -14,8 +14,9 @@ use std::ops::BitXor;
 #[derive(Debug, Clone)]
 pub struct Name(pub String);
 
-pub trait IdType: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>
+pub trait IdType
 {
+    type Id: Clone + Debug + Hash + PartialEq + Eq + Into<u64> + BitXor<u64>;
 }
 
 // This is a common id used for storage
@@ -44,7 +45,9 @@ impl ContentId {
     }
 }
 
-impl IdType for ContentId {}
+impl IdType for ContentId {
+    type Id = Self;
+}
 
 impl Into<u64> for ContentId {
     fn into(self) -> u64 {

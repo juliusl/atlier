@@ -26,7 +26,7 @@ where
     type Value = N::V;
 
     fn listen(&self, update: ContentUpdate<Self::Value>) {
-        println!("{:?}", update)
+        println!("{:#?}", update)
     }
 }
 

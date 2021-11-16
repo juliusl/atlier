@@ -8,6 +8,7 @@ use std::fmt::Debug;
 use std::any::Any;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::ops::DerefMut;
 
 
 #[derive(Transition, Node, Clone, Debug)]
@@ -21,6 +22,12 @@ pub struct Add {
 impl Default for Add {
     fn default() -> Self {
         Add { lhs: 0, rhs: 1 }
+    }
+}
+
+impl Add {
+    pub fn new(lhs: i32, rhs: i32) -> Add {
+        Add { lhs, rhs }
     }
 }
 
@@ -46,24 +53,34 @@ impl Default for Data {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Renderer)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Renderer, Updater)]
+#[update(Add, Data)]
 #[render(Add, Data)]
 pub struct Editor {
     id: u64
+}
+
+// These are expected to be implemented by the user
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct AddEditorUpdater;
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct AddEditorRenderer;
+
+#[derive(Debug, Clone)]
+pub enum EditorData {
+    Empty,
+    Labels, 
+    Integer(i32),
+    Add(AddOutput),
 }
 
 impl Component for Data {
     type Storage = DenseVecStorage<Self>;
 }
 
-impl Editor {
-    fn next_id(&mut self) -> u64 {
-        let next = self.id;
-
-        self.id = next+1; 
-
-        next
-    }
+impl Component for EditorData {
+    type Storage = DenseVecStorage<Self>;
 }
 
 impl Default for Editor {
@@ -72,14 +89,6 @@ impl Default for Editor {
             id: 0
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub enum EditorData {
-    Empty,
-    Labels, 
-    Integer(i32),
-    Add(AddOutput),
 }
 
 impl Default for EditorData {
@@ -95,7 +104,6 @@ impl Node for Editor {
     type AttributeId = u64;
     type K = ContentId; 
     type V = EditorData;
-    type Data = EditorData;
 
     fn next_node_id(&mut self) -> Self::NodeId {
         self.next_id()
@@ -114,3 +122,12 @@ impl Node for Editor {
     }
 }
 
+impl Editor {
+    fn next_id(&mut self) -> u64 {
+        let next = self.id;
+
+        self.id = next+1; 
+
+        next
+    }
+}

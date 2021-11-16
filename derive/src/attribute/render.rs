@@ -29,6 +29,8 @@ impl Render {
         let node_ident = format_ident!("{}Node", self.ident);
         let ty = &self.ty;
         let system_data_ident = format_ident!("{}SystemData", self.ident);
+        let runtime_renderer = format_ident!("{}{}Renderer", self.ident, runtime_ident);
+        
         quote! {
             #[derive(SystemData)]
             pub struct #system_data_ident<'a> {
@@ -41,7 +43,7 @@ impl Render {
                 type Storage = specs::prelude::DenseVecStorage<Self>;
             }
 
-            impl<'a> specs::prelude::System<'a> for #runtime_ident {
+            impl<'a> specs::prelude::System<'a> for #runtime_renderer{
                 type SystemData = #system_data_ident<'a>;
 
                 fn run(&mut self, data: Self::SystemData) {

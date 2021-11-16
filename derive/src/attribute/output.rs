@@ -67,7 +67,16 @@ impl Output {
         let invoke_name = format_ident!("{}Outputs", name);
 
         quote_spanned! {ident.span()=>
-            #enum_name::#enum_path(Some(v)) => #enum_name::#enum_path(Some(v)),
+            #enum_name::#enum_path(Some(v)) => {
+                let next = <#name as #invoke_name>::#ident(#params);
+                if let Some(next) = next {
+                    if next != v {
+                        return #enum_name::#enum_path(Some(next))
+                    }
+                }
+
+                #enum_name::#enum_path(Some(v))
+            },
             #enum_name::#enum_path(None) => #enum_name::#enum_path(<#name as #invoke_name>::#ident(#params)),
         }
     }
@@ -87,7 +96,7 @@ impl Output {
         let ty= &self.ty;
 
         quote! {
-            Artifact::<Self::N>::new_output(
+            Artifact::<N>::new_output(
                 self.#field_name.clone(), 
                 #ident_str.to_string(), 
                 #ty::default().type_id(),

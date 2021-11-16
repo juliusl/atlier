@@ -20,9 +20,11 @@ where
 }
 
 impl<N> IdType for ArtifactId<N>
-where 
+where
     N: Node
-    {}
+{
+    type Id = Self;
+}
 
 impl<N> BitXor<u64> for ArtifactId<N> 
 where 
@@ -123,4 +125,3 @@ where
         Artifact::<N>::new(ArtifactId::<N>::Attribute(id), name, typeid)
     }
 }
-

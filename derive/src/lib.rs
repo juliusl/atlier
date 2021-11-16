@@ -55,6 +55,32 @@ pub fn derive_render(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     gen.into()
 }
 
+#[proc_macro_derive(Updater, attributes(update))]
+pub fn derive_update(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let parsed: syn::DeriveInput = syn::parse_macro_input!(input);
+
+    let ident = &parsed.ident;
+
+    // Parse each #[output(..)] attribute defined on the Transition
+    let attrs = &parsed.attrs;
+    let updates: Vec<TokenStream> = attrs
+              .into_iter()
+              .filter(|a| a.path.is_ident("update"))
+              .map(|a| attribute::update::parse_update_attribute(&a))
+              .filter(|o| o.is_ok())
+              .map(|o| match o {
+                  Ok(o) => o.format_component(ident),
+                  _ => unreachable!(),
+              })
+              .collect();
+
+    let gen = quote! {
+        #( #updates )*
+    };
+
+    gen.into()
+}
+
 // Inner type to have access to the underlying data
 struct ParsedStruct {
     name: Ident,
@@ -141,7 +167,7 @@ impl ParsedStruct {
                 let field_name = format_ident!("{}", format!("{}", ident).to_foreign_key());
 
                 quote! {
-                    Artifact::<Self::N>::new_input(
+                    Artifact::<N>::new_input(
                         self.#field_name.clone(),
                         #ident_str.to_string(),
                         #ty::default().type_id(),
@@ -161,7 +187,7 @@ impl ParsedStruct {
                 let ident_str = format!("{}", ident);
                 let field_name = format_ident!("{}", format!("{}", ident).to_foreign_key());
                 quote! {
-                        Artifact::<Self::N>::new_attribute(
+                        Artifact::<N>::new_attribute(
                             self.#field_name.clone(),
                             #ident_str.to_string(),
                             #ty::default().type_id(),
@@ -212,33 +238,33 @@ impl ParsedStruct {
 
             impl<N> State for #node_struct<N>
             where
-                N: Node + Hash + Eq + PartialEq + Sync,
+                N: Node + Sync,
             {
-                type N = N;
-                type Inputs = ArtifactCollection::<Self::N>;
-                type Outputs = ArtifactCollection::<Self::N>;
-                type Attributes = ArtifactCollection::<Self::N>;
+                type NodeId = N::NodeId;
+                type Inputs = ArtifactCollection<N>;
+                type Outputs = ArtifactCollection<N>;
+                type Attributes = ArtifactCollection<N>;
 
-                fn get_nodeid(&self) -> N::NodeId {
+                fn get_nodeid(&self) -> Self::NodeId {
                     self.node_id.clone()
                 }
 
                 fn get_inputs(&self) -> Self::Inputs {
-                    ArtifactCollection::<Self::N>{
+                    ArtifactCollection::<N>{
                         elems: vec![
                             #( #input_artifacts )*
                         ]}
                 }
 
                 fn get_outputs(&self) -> Self::Outputs {
-                    ArtifactCollection::<Self::N>{
+                    ArtifactCollection::<N>{
                         elems: vec![
                              #output_artifact
                         ]}
                 }
 
                 fn get_attributes(&self) -> Self::Attributes {
-                    ArtifactCollection::<Self::N>{
+                    ArtifactCollection::<N>{
                         elems: vec![
                             #( #attribute_artifacts )*
                         ]}
