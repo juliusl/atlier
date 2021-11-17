@@ -1,5 +1,6 @@
 mod window;
 mod gui;
+use specs::System;
 use window::WindowContext;
 use window::Hardware;
 use imgui_wgpu::Renderer;
@@ -10,7 +11,7 @@ pub use gui::GUI;
 pub use gui::GUIUpdate;
 pub use gui::ControlState;
 
-pub trait App {
+pub trait App<'a>: System<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
     fn show(&mut self, ui: &imgui::Ui);
 }

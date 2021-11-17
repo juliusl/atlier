@@ -1,6 +1,8 @@
+use std::marker::PhantomData;
 use atlier::system::Module;
 use imgui::{Slider, Ui};
 use imnodes::{AttributeFlag, EditorContext, IdentifierGenerator, PinShape, editor};
+use specs::{Component, DenseVecStorage, Entities, Join, ReadStorage, System};
 
 pub struct SimpleNode {
     node_id: Option<imnodes::NodeId>,
@@ -11,7 +13,11 @@ pub struct SimpleNode {
     value: f64,
 }
 
-impl SimpleNode {
+impl Component for SimpleNode {
+    type Storage = DenseVecStorage<Self>;
+}
+
+impl<'a> SimpleNode {
     pub fn new(name: String, value: f64) -> Self {
         SimpleNode {
             name: name,
@@ -25,7 +31,7 @@ impl SimpleNode {
 }
 
 // TODO: Derive this -- 
-impl atlier::prelude::Module for SimpleNode {
+impl<'a> atlier::prelude::Module for SimpleNode {
     fn node(&mut self, id_gen: &mut imnodes::IdentifierGenerator, editor_scope: &mut imnodes::EditorScope, ui: &imgui::Ui) {
             if let SimpleNode {
                 node_id: Some(nodeid),
@@ -76,9 +82,19 @@ where
     pub links: Vec<(imnodes::LinkId, imnodes::InputPinId, imnodes::OutputPinId)>,
 }
 
-impl<'a, N> atlier::prelude::App for GraphApp<N>
-where
-    N: Module
+impl<'a> System<'a> for GraphApp<SimpleNode>{
+    type SystemData = (Entities<'a>, ReadStorage<'a, SimpleNode>);
+
+    fn run(&mut self, data: Self::SystemData) {
+        for (e, mut s) in (&data.0, &data.1).join() {
+            // TODO Get updater here
+        }
+
+        self.nodes = vec![];
+    }
+}
+
+impl<'a> atlier::prelude::App<'a> for GraphApp<SimpleNode>
 {
     fn get_window(&self) -> imgui::Window<'static, String> {
         imgui::Window::new(self.name.clone())

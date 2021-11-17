@@ -29,7 +29,7 @@ fn main() {
                 SimpleNode::new("A".to_string(), 10.32),
                 SimpleNode::new("B".to_string(), 12.43),
             ],
-            links: vec![] 
+            links: vec![],
         },
 
         GraphApp{
@@ -40,7 +40,7 @@ fn main() {
                 SimpleNode::new("A".to_string(), 10.32),
                 SimpleNode::new("B".to_string(), 12.43),
             ],
-            links: vec![]
+            links: vec![],
         },
     ];
 

@@ -52,7 +52,7 @@ pub struct GUISystemData<'a>
 
 impl<'a, A> System<'a> for GUI<A>
 where 
-    A: crate::App
+    A: crate::App<'a>
 {
     type SystemData = GUISystemData<'a>;
 
