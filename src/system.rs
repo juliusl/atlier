@@ -24,6 +24,21 @@ pub trait App<'a> {
     fn show(&mut self, ui: &imgui::Ui);
 }
 
+#[derive(Clone)]
+pub enum Value {
+    Float(f32),
+    Int(i32),
+    FloatRange(f64, f64, f64),
+    IntRange(i64, i64, i64),
+    TextBuffer(String),
+}
+
+impl Into<AttributeValue> for Value {
+    fn into(self) -> AttributeValue {
+        AttributeValue::System(self)
+    }
+}
+
 pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>) ->  (winit::event_loop::EventLoop<()>, GUI<A>) {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {

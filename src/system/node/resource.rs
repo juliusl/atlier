@@ -1,47 +1,69 @@
 use imnodes::AttributeFlag;
 
 use super::{Node, NodeEditor};
+use crate::system::Value;
 
 #[derive(Clone)]
 pub enum AttributeValue {
-    Float(f64, f64, f64),
-    Int(i64, i64, i64),
+    System(crate::system::Value),
 }
 
 impl AttributeValue {
     pub fn slider(name: String, ui: &imgui::Ui, value: &mut AttributeValue) {
         match value {
-            AttributeValue::Float(v, min, max) => {
-                ui.set_next_item_width(130.0);
-                imgui::Slider::new(name, min.clone(), max.clone())
-                    .build(ui, v);
-            }
-            AttributeValue::Int(v, min, max) => {
-                ui.set_next_item_width(130.0);
-                imgui::Slider::new(name, min.clone(), max.clone())
-                    .build(ui, v);
+            AttributeValue::System(v) => match v {
+                Value::FloatRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
+                }
+                Value::IntRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
+                },
+                _ => {} 
             }
         };
+    }
+
+    pub fn input(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
+        match value {
+            AttributeValue::System(v) => match v {
+                Value::TextBuffer(text) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputText::new(ui, label, text).build();
+                },
+                Value::Int(int) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputInt::new(ui, label, int).build();
+                },
+                Value::Float(float) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputFloat::new(ui, label, float).build();
+                },
+                _ => {},
+            }
+        }
     }
 }
 
 #[derive(Clone)]
 pub enum NodeResource {
-    Title(&'static str), 
-    Input(fn() -> &'static str, Option<imnodes::InputPinId>), 
-    Output(fn() -> &'static str, Option<imnodes::OutputPinId>), 
-    Attribute(fn() -> &'static str,  fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue), Option<AttributeValue>, Option<imnodes::AttributeId>),
+    Title(&'static str),
+    Input(fn() -> &'static str, Option<imnodes::InputPinId>),
+    Output(fn() -> &'static str, Option<imnodes::OutputPinId>),
+    Attribute(
+        fn() -> &'static str,
+        fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
+        Option<AttributeValue>,
+        Option<imnodes::AttributeId>,
+    ),
 }
 
 impl Node for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
         match self {
-            NodeResource::Title(title) => {
-                node.add_titlebar(||{
-                    ui.text(title)
-                })
-            }
-            NodeResource::Input(name, Some(id))  => {
+            NodeResource::Title(title) => node.add_titlebar(|| ui.text(title)),
+            NodeResource::Input(name, Some(id)) => {
                 let name = name();
                 node.add_input(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
@@ -55,18 +77,21 @@ impl Node for NodeResource {
             }
             NodeResource::Attribute(name, display, Some(attr), Some(id)) => {
                 let name = name();
-                node.attribute(id.clone(), ||{
+                node.attribute(id.clone(), || {
                     display(name.to_string(), &ui, attr);
                 });
             }
-            _ => return
+            _ => return,
         }
     }
 
-    fn setup(id_gen: &mut imnodes::IdentifierGenerator, resources: Vec<NodeResource>) -> Vec<NodeResource> {
+    fn setup(
+        id_gen: &mut imnodes::IdentifierGenerator,
+        resources: Vec<NodeResource>,
+    ) -> Vec<NodeResource> {
         let mut next = vec![];
         for r in resources {
-           let next_r = match r {
+            let next_r = match r {
                 NodeResource::Attribute(name, display, Some(v), None) => {
                     NodeResource::Attribute(name, display, Some(v), Some(id_gen.next_attribute()))
                 }
@@ -80,73 +105,87 @@ impl Node for NodeResource {
                 p => p.clone(),
             };
 
-            next.push(next_r); 
+            next.push(next_r);
         }
-        
+
         next
     }
 }
 
 #[derive(Clone)]
-pub enum EditorResource {    
+pub enum EditorResource {
     Node {
         id: Option<imnodes::NodeId>,
         resources: Vec<NodeResource>,
     },
-    ColorStyle(fn(editor_context: &imnodes::EditorContext) -> imnodes::ColorToken, Option<imnodes::ColorToken>),
-    AttributeFlag(fn(editor_context: &imnodes::EditorContext) -> imnodes::AttributeFlagToken, Option<imnodes::AttributeFlagToken>),
+    Link {
+        id: imnodes::LinkId,
+        start: imnodes::OutputPinId, 
+        end: imnodes::InputPinId
+    },
+    ColorStyle(
+        fn(editor_context: &imnodes::EditorContext) -> imnodes::ColorToken,
+        Option<imnodes::ColorToken>,
+    ),
+    AttributeFlag(
+        fn(editor_context: &imnodes::EditorContext) -> imnodes::AttributeFlagToken,
+        Option<imnodes::AttributeFlagToken>,
+    ),
 }
 
 impl EditorResource {
     pub fn create_link_on_snap() -> EditorResource {
-        EditorResource::AttributeFlag(|e|e.push(AttributeFlag::EnableLinkCreationOnSnap), None)
+        EditorResource::AttributeFlag(|e| e.push(AttributeFlag::EnableLinkCreationOnSnap), None)
     }
-    
+
     pub fn detatch_with_drag_click() -> EditorResource {
-        EditorResource::AttributeFlag(|e|e.push(AttributeFlag::EnableLinkDetachWithDragClick), None)
+        EditorResource::AttributeFlag(
+            |e| e.push(AttributeFlag::EnableLinkDetachWithDragClick),
+            None,
+        )
     }
 }
 
 impl NodeEditor for EditorResource {
-    fn setup(id_gen: &mut imnodes::IdentifierGenerator, _: &imnodes::EditorContext, mut resources: Vec<EditorResource>)  -> Vec<EditorResource> {
+    fn setup(
+        id_gen: &mut imnodes::IdentifierGenerator,
+        _: &imnodes::EditorContext,
+        mut resources: Vec<EditorResource>,
+    ) -> Vec<EditorResource> {
         let mut next = vec![];
-        
+
         for r in resources.iter_mut() {
             let next_r = match r {
                 EditorResource::Node {
                     id: None,
                     resources,
-                } => {
-                    EditorResource::Node {
-                        id: Some(id_gen.next_node()),
-                        resources:  NodeResource::setup(id_gen, resources.to_vec()),
-                    }
+                } => EditorResource::Node {
+                    id: Some(id_gen.next_node()),
+                    resources: NodeResource::setup(id_gen, resources.to_vec()),
                 },
                 p => p.clone(),
             };
-        
+
             next.push(next_r);
         }
 
         next
     }
 
-    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {       
+    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {
         match self {
             EditorResource::Node {
                 id: Some(id),
                 resources,
-            } => {
-                editor.add_node(id.clone(), |mut scope|{     
-                    let mut iter = resources.iter_mut();
+            } => editor.add_node(id.clone(), |mut scope| {
+                let mut iter = resources.iter_mut();
 
-                    while let Some(next) = iter.next() {
-                        let node_scope = &mut scope;
+                while let Some(next) = iter.next() {
+                    let node_scope = &mut scope;
 
-                        next.show(node_scope, ui)
-                    }
-                })
-            },
+                    next.show(node_scope, ui)
+                }
+            }),
             _ => {}
         };
     }

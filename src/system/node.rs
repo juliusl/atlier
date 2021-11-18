@@ -38,10 +38,11 @@ pub trait Node {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui);
 }
 
+// NodeModule encapsulates a single editor and it's resources
+// it is an node event handler and will detect new connections
 pub struct NodeModule {
     resources: Vec<EditorResource>,
     id_gen: IdentifierGenerator,
-    links: Vec<(imnodes::LinkId, imnodes::InputPinId, imnodes::OutputPinId)>,
 }
 
 impl<'a> NodeEditor for NodeModule {
@@ -68,12 +69,77 @@ impl<'a> NodeEditor for NodeModule {
 
                 res.show(editor_scope, ui)
             });
-            
-        self.links.iter().for_each(|l| {
-            editor.add_link(l.0, l.1, l.2);
-        })
+        self.resources
+            .iter()
+            .filter(|r|{
+                if let EditorResource::Link { .. } = r {
+                    return true;
+                } else {
+                    return false;
+                }
+            })
+            .for_each(|l|{
+                if let EditorResource::Link {
+                    id,
+                    start,
+                    end,
+                } = l {
+                    editor.add_link(*id, *end, *start)
+                }
+            });
     }
 }
+
+impl<'a> NodeEventHandler for NodeModule {
+    fn on_node_link_created(&mut self, link: imnodes::Link) {
+        if let (false, s, e) = (link.craeated_from_snap, link.start_pin, link.end_pin) {
+            let exists = self.resources.iter().any(|f| 
+                {
+                    if let EditorResource::Link{
+                        end,
+                        start,
+                        .. 
+                    } = f {
+                        return e == *end && s == *start
+                    }
+
+                    return false; 
+                });
+            
+            if !exists {
+                let linkid = self.id_gen.next_link();
+
+                self.resources.push(EditorResource::Link{
+                    id: linkid,
+                    start: s,
+                    end: e
+                }); 
+            }
+        }
+    }
+
+    fn on_node_link_destroyed(&mut self, linkid: imnodes::LinkId) {
+        let next: Vec<EditorResource> = self
+            .resources
+            .iter()
+            .filter(|l| { 
+                if let EditorResource::Link 
+                {
+                    id,
+                    ..
+                } = l {
+                    return *id == linkid;
+                } else {
+                    return true; 
+                }
+            })
+            .map(|f| f.to_owned())
+            .collect();
+
+        self.resources = next;
+    }
+}
+
 
 pub struct NodeApp {
     name: String,
@@ -92,7 +158,7 @@ impl NodeApp {
     }
 
     // Instantiates a new module to include with this app
-    pub fn with(mut self, resources: Vec<EditorResource>)  -> Self {
+    pub fn module(mut self, resources: Vec<EditorResource>)  -> Self {
         let editor_context = self.imnode.create_editor();
         let id_gen = editor_context.new_identifier_generator();
         self.modules.push((
@@ -100,7 +166,6 @@ impl NodeApp {
             NodeModule {
                 resources: resources,
                 id_gen: id_gen,
-                links: vec![],
             },
         ));
         
@@ -141,29 +206,5 @@ impl<'a> App<'a> for NodeApp {
                 detatch.pop();
             });
         });
-    }
-}
-
-impl<'a> NodeEventHandler for NodeModule {
-    fn on_node_link_created(&mut self, link: imnodes::Link) {
-        if let (false, start, end) = (link.craeated_from_snap, link.start_pin, link.end_pin) {
-            let exists = self.links.iter().any(|f| f.1 == end && f.2 == start);
-            if !exists {
-                let linkid = self.id_gen.next_link();
-
-                self.links.push((linkid, end, start));
-            }
-        }
-    }
-
-    fn on_node_link_destroyed(&mut self, linkid: imnodes::LinkId) {
-        let next: Vec<(imnodes::LinkId, imnodes::InputPinId, imnodes::OutputPinId)> = self
-            .links
-            .iter_mut()
-            .filter(|(l, ..)| *l != linkid)
-            .map(|f| *f)
-            .collect();
-
-        self.links = next;
     }
 }
