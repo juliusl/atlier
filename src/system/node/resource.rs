@@ -1,9 +1,7 @@
-use imnodes::AttributeFlag;
-
 use super::{Node, NodeEditor};
 use crate::system::Value;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum AttributeValue {
     System(crate::system::Value),
 }
@@ -57,6 +55,26 @@ pub enum NodeResource {
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     ),
+}
+
+impl NodeResource {
+    pub fn name(&self) -> String {
+        match self {
+            NodeResource::Title(s) => s.to_string(),
+            NodeResource::Input(s, _) => s().to_string(),
+            NodeResource::Output(s, _) => s().to_string(),
+            NodeResource::Attribute(s, _, _, _) => s().to_string(),
+        }
+    }
+
+    pub fn state(&self) -> String {
+        match self {
+            NodeResource::Title(_) => String::new(),
+            NodeResource::Input(_, v) => format!("{:#?}", v),
+            NodeResource::Output(_, v) => format!("{:#?}", v),
+            NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
+        }
+    }
 }
 
 impl Node for NodeResource {
@@ -123,27 +141,6 @@ pub enum EditorResource {
         start: imnodes::OutputPinId, 
         end: imnodes::InputPinId
     },
-    ColorStyle(
-        fn(editor_context: &imnodes::EditorContext) -> imnodes::ColorToken,
-        Option<imnodes::ColorToken>,
-    ),
-    AttributeFlag(
-        fn(editor_context: &imnodes::EditorContext) -> imnodes::AttributeFlagToken,
-        Option<imnodes::AttributeFlagToken>,
-    ),
-}
-
-impl EditorResource {
-    pub fn create_link_on_snap() -> EditorResource {
-        EditorResource::AttributeFlag(|e| e.push(AttributeFlag::EnableLinkCreationOnSnap), None)
-    }
-
-    pub fn detatch_with_drag_click() -> EditorResource {
-        EditorResource::AttributeFlag(
-            |e| e.push(AttributeFlag::EnableLinkDetachWithDragClick),
-            None,
-        )
-    }
 }
 
 impl NodeEditor for EditorResource {

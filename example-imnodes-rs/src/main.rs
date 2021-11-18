@@ -51,7 +51,7 @@ fn main() {
             ],
             id: None,
             },
-        ]);
+        ], true);
 
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop

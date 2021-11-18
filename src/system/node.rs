@@ -1,13 +1,10 @@
-
-
-use imnodes::editor;
+use imnodes::{editor, CoordinateSystem};
 use imnodes::{EditorContext, IdentifierGenerator};
 
-
 mod resource;
+pub use resource::AttributeValue;
 pub use resource::EditorResource;
 pub use resource::NodeResource;
-pub use resource::AttributeValue;
 
 mod expression;
 pub use expression::Sum;
@@ -43,6 +40,7 @@ pub trait Node {
 pub struct NodeModule {
     resources: Vec<EditorResource>,
     id_gen: IdentifierGenerator,
+    debug: (bool, Option<(imnodes::NodeId, imnodes::AttributeId)>),
 }
 
 impl<'a> NodeEditor for NodeModule {
@@ -55,6 +53,7 @@ impl<'a> NodeEditor for NodeModule {
     }
 
     fn show(&mut self, mut editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {
+        // Render nodes
         self.resources
             .iter_mut()
             .filter(|r| {
@@ -69,51 +68,112 @@ impl<'a> NodeEditor for NodeModule {
 
                 res.show(editor_scope, ui)
             });
+
+        // Render links
         self.resources
             .iter()
-            .filter(|r|{
+            .filter(|r| {
                 if let EditorResource::Link { .. } = r {
                     return true;
                 } else {
                     return false;
                 }
             })
-            .for_each(|l|{
-                if let EditorResource::Link {
-                    id,
-                    start,
-                    end,
-                } = l {
+            .for_each(|l| {
+                if let EditorResource::Link { id, start, end } = l {
                     editor.add_link(*id, *end, *start)
                 }
             });
+
+        if let (true, Some((debug, debug_attr))) = self.debug {
+            editor.add_node(debug, |mut nodescope| {
+                nodescope.add_titlebar(|| ui.text("debug"));
+                nodescope.attribute(debug_attr, || {
+                    ui.set_next_item_width(400.0);
+                    if let Some(listboxtoken) = imgui::ListBox::new("debug state").size([400.0, 500.0]).begin(ui) {
+                        if let Some(resources_tree) = imgui::TreeNode::new("resources").push(ui) {
+                            self.resources.iter().for_each(|f| {
+                                if let EditorResource::Node {
+                                    id: Some(i),
+                                    resources,
+                                } = f
+                                {
+                                    let tree_label = format!("Node: {:?}", i);
+        
+                                    ui.set_next_item_width(120.0);
+                                    if let Some(node_token) = imgui::TreeNode::new(tree_label).push(ui) {
+                                        resources.iter().for_each(|n| {
+                                            let name = &n.name();
+                                            let state = &n.state();
+                                            ui.set_next_item_width(120.0);
+                                            if let Some(node_resource_token) =
+                                                imgui::TreeNode::new(name).push(ui)
+                                            {
+                                                ui.text(format!(
+                                                    "{:?}\n{:?}\n{:?}",
+                                                    i.get_position(CoordinateSystem::ScreenSpace),
+                                                    i.get_position(CoordinateSystem::EditorSpace), // TODO: These two appear to be the same
+                                                    i.get_position(CoordinateSystem::GridSpace),
+                                                ));
+                                                ui.text(name);
+                                                ui.text(state);
+        
+                                                node_resource_token.pop();
+                                            }
+                                        });
+        
+                                        node_token.pop();
+                                    }
+                                };
+        
+                                if let EditorResource::Link { start, end, id } = f {
+                                    let tree_label = format!("Link: {:?}", *id);
+        
+                                    ui.set_next_item_width(120.0);
+                                    if let Some(link_item) = imgui::TreeNode::new(tree_label).push(ui) {
+                                        ui.text("linked--");
+        
+                                        let start = format!("{:#?}", start);
+                                        let end = format!("{:#?}", end);
+        
+                                        ui.text(start);
+                                        ui.text(end);
+                                        link_item.pop();
+                                    }
+                                }
+                            });
+                            resources_tree.pop();
+                        }
+                    
+                        listboxtoken.end();
+                    }
+                });
+            });
+        } else if let (true, None) = self.debug {
+            self.debug = (true, Some((self.id_gen.next_node(), self.id_gen.next_attribute())));
+        }
     }
 }
 
 impl<'a> NodeEventHandler for NodeModule {
     fn on_node_link_created(&mut self, link: imnodes::Link) {
         if let (false, s, e) = (link.craeated_from_snap, link.start_pin, link.end_pin) {
-            let exists = self.resources.iter().any(|f| 
-                {
-                    if let EditorResource::Link{
-                        end,
-                        start,
-                        .. 
-                    } = f {
-                        return e == *end && s == *start
-                    }
+            let exists = self.resources.iter().any(|f| {
+                if let EditorResource::Link { end, start, .. } = f {
+                    return e == *end && s == *start;
+                }
 
-                    return false; 
-                });
-            
+                return false;
+            });
+
             if !exists {
                 let linkid = self.id_gen.next_link();
 
-                self.resources.push(EditorResource::Link{
+                self.resources.push(EditorResource::Link {
                     id: linkid,
                     start: s,
-                    end: e
-                }); 
+                    end: e,
+                });
             }
         }
     }
@@ -122,15 +182,11 @@ impl<'a> NodeEventHandler for NodeModule {
         let next: Vec<EditorResource> = self
             .resources
             .iter()
-            .filter(|l| { 
-                if let EditorResource::Link 
-                {
-                    id,
-                    ..
-                } = l {
-                    return *id == linkid;
+            .filter(|l| {
+                if let EditorResource::Link { id, .. } = l {
+                    return *id != linkid;
                 } else {
-                    return true; 
+                    return true;
                 }
             })
             .map(|f| f.to_owned())
@@ -139,7 +195,6 @@ impl<'a> NodeEventHandler for NodeModule {
         self.resources = next;
     }
 }
-
 
 pub struct NodeApp {
     name: String,
@@ -158,7 +213,7 @@ impl NodeApp {
     }
 
     // Instantiates a new module to include with this app
-    pub fn module(mut self, resources: Vec<EditorResource>)  -> Self {
+    pub fn module(mut self, resources: Vec<EditorResource>, enable_debug: bool) -> Self {
         let editor_context = self.imnode.create_editor();
         let id_gen = editor_context.new_identifier_generator();
         self.modules.push((
@@ -166,9 +221,10 @@ impl NodeApp {
             NodeModule {
                 resources: resources,
                 id_gen: id_gen,
+                debug: (enable_debug, None),
             },
         ));
-        
+
         self
     }
 }
@@ -191,14 +247,14 @@ impl<'a> App<'a> for NodeApp {
                     <NodeModule as NodeEditor>::setup(&mut m.id_gen, &e, m.resources.to_vec());
                 m.resources = resources;
 
-                let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick); 
+                let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
 
                 let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
 
                 for i in outer_scope.links_created() {
                     m.on_node_link_created(i);
                 }
-    
+
                 for i in outer_scope.get_dropped_link() {
                     m.on_node_link_destroyed(i);
                 }
