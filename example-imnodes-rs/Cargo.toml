@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 atlier = { path = "../" }
-lib = { path = "./lib" }
 specs = { version = "0.17.0", features = ["default", "derive"] }
 imnodes = { path = "../imnodes-rs" }
 

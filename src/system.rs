@@ -1,6 +1,7 @@
 mod window;
 mod gui;
-use specs::System;
+mod node;
+
 use window::WindowContext;
 use window::Hardware;
 use imgui_wgpu::Renderer;
@@ -11,13 +12,15 @@ pub use gui::GUI;
 pub use gui::GUIUpdate;
 pub use gui::ControlState;
 
-pub trait App<'a>: System<'a> {
+pub use node::NodeModule;
+pub use node::NodeApp;
+pub use node::NodeResource;
+pub use node::EditorResource;
+pub use node::Sum;
+
+pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
     fn show(&mut self, ui: &imgui::Ui);
-}
-
-pub trait Module {
-    fn node(&mut self, id_gen: &mut imnodes::IdentifierGenerator, editor_scope: &mut imnodes::EditorScope, ui: &imgui::Ui);
 }
 
 pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>) ->  (winit::event_loop::EventLoop<()>, GUI<A>) {

@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use imgui::Ui;
 use specs::prelude::*;
 use winit::event::Event;
 use winit::event::WindowEvent;

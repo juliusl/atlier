@@ -2,8 +2,9 @@
 use atlier::prelude::new_gui_system;
 use atlier::prelude::ControlState;
 use atlier::prelude::GUIUpdate;
-use lib::GraphApp;
-use lib::SimpleNode;
+use atlier::system::NodeApp;
+use atlier::system::Sum;
+use atlier::system::EditorResource;
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
@@ -11,44 +12,21 @@ fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
-    let imnodes = imnodes::Context::new();
-
-    let imnodes_editor = imnodes.create_editor();
-    let idgen = imnodes_editor.new_identifier_generator();
-   
-
-    let other_editor = imnodes.create_editor();
-    let other_idgen = other_editor.new_identifier_generator();
-
-    let apps = vec![
-        GraphApp{
-            editor_context: imnodes_editor,
-            id_gen: idgen,
-            name: "Test1".to_string(),
-            nodes: vec![
-                SimpleNode::new("A".to_string(), 10.32),
-                SimpleNode::new("B".to_string(), 12.43),
-            ],
-            links: vec![],
-        },
-
-        GraphApp{
-            editor_context: other_editor,
-            id_gen: other_idgen,
-            name: "Test2".to_string(),
-            nodes: vec![
-                SimpleNode::new("A".to_string(), 10.32),
-                SimpleNode::new("B".to_string(), 12.43),
-            ],
-            links: vec![],
-        },
-    ];
+    let app = NodeApp::new("node-app".to_string())
+        .with(vec![
+            Sum::default().into(), 
+            Sum::default().into(), 
+            Sum::default().into(), 
+            Sum::default().into()
+        ]);
 
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     let (event_loop, gui) =
-        new_gui_system::<GraphApp<SimpleNode>>("example-imnodes-specs", 1920.0, 1080.0, apps);
+        new_gui_system::<NodeApp>("example-imnodes-specs", 1920.0, 1080.0, vec![
+            app
+        ]);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new()
@@ -63,7 +41,7 @@ fn main() {
             event: winit::event::Event::Suspended,
         }))
         .build();
-
+    
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
         // LOGIC
