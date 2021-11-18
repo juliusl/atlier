@@ -7,6 +7,7 @@ use imnodes::{EditorContext, IdentifierGenerator};
 mod resource;
 pub use resource::EditorResource;
 pub use resource::NodeResource;
+pub use resource::AttributeValue;
 
 mod expression;
 pub use expression::Sum;
@@ -81,6 +82,7 @@ pub struct NodeApp {
 }
 
 impl NodeApp {
+    // Instantiates a new node editor window
     pub fn new(name: String) -> Self {
         NodeApp {
             name: name,
@@ -89,6 +91,7 @@ impl NodeApp {
         }
     }
 
+    // Instantiates a new module to include with this app
     pub fn with(mut self, resources: Vec<EditorResource>)  -> Self {
         let editor_context = self.imnode.create_editor();
         let id_gen = editor_context.new_identifier_generator();

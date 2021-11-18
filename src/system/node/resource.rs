@@ -2,12 +2,35 @@ use imnodes::AttributeFlag;
 
 use super::{Node, NodeEditor};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
+pub enum AttributeValue {
+    Float(f64, f64, f64),
+    Int(i64, i64, i64),
+}
+
+impl AttributeValue {
+    pub fn slider(name: String, ui: &imgui::Ui, value: &mut AttributeValue) {
+        match value {
+            AttributeValue::Float(v, min, max) => {
+                ui.set_next_item_width(130.0);
+                imgui::Slider::new(name, min.clone(), max.clone())
+                    .build(ui, v);
+            }
+            AttributeValue::Int(v, min, max) => {
+                ui.set_next_item_width(130.0);
+                imgui::Slider::new(name, min.clone(), max.clone())
+                    .build(ui, v);
+            }
+        };
+    }
+}
+
+#[derive(Clone)]
 pub enum NodeResource {
     Title(&'static str), 
     Input(fn() -> &'static str, Option<imnodes::InputPinId>), 
     Output(fn() -> &'static str, Option<imnodes::OutputPinId>), 
-    Attribute(fn() -> &'static str, fn(name: String, ui: &imgui::Ui), Option<imnodes::AttributeId>),
+    Attribute(fn() -> &'static str,  fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue), Option<AttributeValue>, Option<imnodes::AttributeId>),
 }
 
 impl Node for NodeResource {
@@ -30,10 +53,10 @@ impl Node for NodeResource {
                     ui.text(name);
                 });
             }
-            NodeResource::Attribute(name, display, Some(id)) => {
+            NodeResource::Attribute(name, display, Some(attr), Some(id)) => {
                 let name = name();
                 node.attribute(id.clone(), ||{
-                    display(name.to_string(), &ui);
+                    display(name.to_string(), &ui, attr);
                 });
             }
             _ => return
@@ -44,8 +67,8 @@ impl Node for NodeResource {
         let mut next = vec![];
         for r in resources {
            let next_r = match r {
-                NodeResource::Attribute(name, display, None) => {
-                    NodeResource::Attribute(name, display, Some(id_gen.next_attribute()))
+                NodeResource::Attribute(name, display, Some(v), None) => {
+                    NodeResource::Attribute(name, display, Some(v), Some(id_gen.next_attribute()))
                 }
                 NodeResource::Output(name, None) => {
                     NodeResource::Output(name, Some(id_gen.next_output_pin()))

@@ -17,6 +17,7 @@ pub use node::NodeApp;
 pub use node::NodeResource;
 pub use node::EditorResource;
 pub use node::Sum;
+pub use node::AttributeValue;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;

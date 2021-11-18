@@ -2,13 +2,21 @@
 use atlier::prelude::new_gui_system;
 use atlier::prelude::ControlState;
 use atlier::prelude::GUIUpdate;
+use atlier::system::AttributeValue;
+use atlier::system::EditorResource;
 use atlier::system::NodeApp;
 use atlier::system::Sum;
-use atlier::system::EditorResource;
+use atlier::prelude::NodeResource;
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
 fn main() {
+    let attr = NodeResource::Attribute(
+        || "test", 
+        AttributeValue::slider,
+        Some(AttributeValue::Float(10.0, 0.0, 100.0)),
+        None);
+
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
@@ -17,7 +25,15 @@ fn main() {
             Sum::default().into(), 
             Sum::default().into(), 
             Sum::default().into(), 
-            Sum::default().into()
+            Sum::default().into(),
+            EditorResource::Node {
+                resources: vec![
+                    NodeResource::Title("hello"),
+                    attr,
+                    NodeResource::Output(||"output", None),
+                ],
+                id: None,
+            }
         ]);
 
     // Create the new gui_system,
@@ -25,7 +41,7 @@ fn main() {
     // This application either starts up, or panics here
     let (event_loop, gui) =
         new_gui_system::<NodeApp>("example-imnodes-specs", 1920.0, 1080.0, vec![
-            app
+            app,
         ]);
 
     // Create the specs dispatcher
