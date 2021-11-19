@@ -48,6 +48,7 @@ pub struct NodeModule {
     resources: Vec<EditorResource>,
     id_gen: IdentifierGenerator,
     debug: (bool, Option<(imnodes::NodeId, imnodes::AttributeId)>),
+    state: Option<HashMap<imnodes::NodeId, AttributeValue>>,
 }
 
 impl<'a> NodeEditor for NodeModule {
@@ -90,7 +91,7 @@ impl<'a> NodeEditor for NodeModule {
             })
             .for_each(|l| {
                 if let EditorResource::Link { id, start, end } = l {
-                    editor.add_link(*id, *end, *start)
+                    editor.add_link(*id, end.1, start.1)
                 }
             });
 
@@ -111,11 +112,33 @@ impl<'a> NodeEditor for NodeModule {
                                 } = f
                                 {
                                     let tree_label = format!("Node: {:?}", i);
-
                                     ui.set_next_item_width(120.0);
                                     if let Some(node_token) =
                                         imgui::TreeNode::new(tree_label).push(ui)
                                     {
+                                        if let Some(state_index) = &self.state {
+                                            if let Some(v) = state_index.get(i) {
+                                                if let Some(node_id_token) =
+                                                    imgui::TreeNode::new("state_index").push(ui)
+                                                {
+                                                    if let AttributeValue::Dictionary(dictionary) =
+                                                        v
+                                                    {
+                                                        for (k, v) in dictionary {
+                                                            if let Some(dictionary_value_token) =
+                                                                imgui::TreeNode::new(k).push(ui)
+                                                            {
+                                                                ui.text(format!("{:#?}", v));
+
+                                                                dictionary_value_token.pop();
+                                                            }
+                                                        }
+                                                    }
+                                                    node_id_token.pop();
+                                                }
+                                            }
+                                        }
+
                                         resources.iter().for_each(|n| {
                                             let name = &n.name();
                                             let state = &n.debug_state();
@@ -219,10 +242,16 @@ impl<'a> NodeEditor for NodeModule {
 
 impl<'a> NodeEventHandler for NodeModule {
     fn on_node_link_created(&mut self, link: imnodes::Link) {
-        if let (false, s, e) = (link.craeated_from_snap, link.start_pin, link.end_pin) {
+        if let (false, s, e, start_node, end_node) = (
+            link.craeated_from_snap,
+            link.start_pin,
+            link.end_pin,
+            link.start_node,
+            link.end_node,
+        ) {
             let exists = self.resources.iter().any(|f| {
                 if let EditorResource::Link { end, start, .. } = f {
-                    return e == *end && s == *start;
+                    return e == end.1 && s == start.1;
                 }
 
                 return false;
@@ -231,11 +260,72 @@ impl<'a> NodeEventHandler for NodeModule {
             if !exists {
                 let linkid = self.id_gen.next_link();
 
-                self.resources.push(EditorResource::Link {
-                    id: linkid,
-                    start: s,
-                    end: e,
+                let output_name = self.resources.iter().find_map(|f| {
+                    if let EditorResource::Node {
+                        id: Some(id),
+                        resources,
+                    } = f
+                    {
+                        if *id == start_node {
+                            let name = resources.iter().find_map(|f| {
+                                if let NodeResource::Output(start_node_name, _, _, Some(start_id)) =
+                                    f
+                                {
+                                    if *start_id == s {
+                                        Some(start_node_name())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            });
+                            return name;
+                        }
+                        None
+                    } else {
+                        None
+                    }
                 });
+
+                let input_name = self.resources.iter().find_map(|f| {
+                    if let EditorResource::Node {
+                        id: Some(id),
+                        resources,
+                    } = f
+                    {
+                        if *id == end_node {
+                            let name = resources.iter().find_map(|f| {
+                                if let NodeResource::Input(end_node_name, Some(end_id)) = f {
+                                    if *end_id == e {
+                                        Some(end_node_name())
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            });
+                            return name;
+                        }
+                        None
+                    } else {
+                        None
+                    }
+                });
+
+                if let (Some(output_name), Some(input_name)) = (output_name, input_name) {
+                    self.resources.push(EditorResource::Link {
+                        id: linkid,
+                        start: (output_name.to_string(), s),
+                        end: (input_name.to_string(), e),
+                    });
+
+                    let state_index = NodeResource::index_editor_state(
+                        self.resources.to_vec(),
+                    );
+                    self.state = Some(state_index);
+                }
             }
         }
     }
@@ -284,6 +374,7 @@ impl NodeApp {
                 resources: resources,
                 id_gen: id_gen,
                 debug: (enable_debug, None),
+                state: None,
             },
         ));
 

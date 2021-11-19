@@ -1,3 +1,4 @@
+use imnodes::{InputPinId, OutputPinId};
 use super::{Node, NodeEditor};
 use crate::system::Value;
 use std::collections::HashMap;
@@ -7,6 +8,8 @@ pub enum AttributeValue {
     Literal(crate::system::Value),
     Container(Vec<AttributeValue>),
     Dictionary(HashMap<String, AttributeValue>),
+    Empty,
+    Error(String),
 }
 
 impl AttributeValue {
@@ -81,7 +84,7 @@ impl AttributeValue {
 #[derive(Clone)]
 pub enum NodeResource {
     Title(&'static str),
-    Input(fn() -> &'static str, Option<imnodes::InputPinId>), //
+    Input(fn() -> &'static str, Option<imnodes::InputPinId>),
     Output(
         fn() -> &'static str,
         fn(state: HashMap<String, Vec<NodeResource>>) -> Option<AttributeValue>,
@@ -94,6 +97,124 @@ pub enum NodeResource {
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     ),
+}
+
+impl NodeResource {
+    pub fn index_editor_state(resources: Vec<EditorResource>) -> HashMap<imnodes::NodeId, AttributeValue> {
+        // First get all of the links
+        let links = resources
+            .iter()
+            .filter_map(|r| if let EditorResource::Link{start, end, ..} = r { Some((start, end)) } else { None });
+
+        let mut inputid_to_nodeid_index: HashMap<InputPinId, imnodes::NodeId> = HashMap::new();
+        let mut outputid_to_nodeid_index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
+        let mut nodeid_to_dictionary: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
+        for editor_resource in resources.iter() {
+            let index = NodeResource::index_node_inputs(editor_resource);
+            inputid_to_nodeid_index.extend(index);
+
+            let output_index = NodeResource::index_node_outputs(editor_resource);
+            outputid_to_nodeid_index.extend(output_index);
+
+            let dictionary = NodeResource::index_node_state_to_dictionary(editor_resource);
+            nodeid_to_dictionary.extend(dictionary);
+        }
+
+        // Merge the attributes from
+        for ((output_name, output_pin_id), (input_name, input_pin_id)) in links {
+            let output_val = if let Some(output_values) = if let Some(output_node_id) = outputid_to_nodeid_index.get(output_pin_id) {
+                if let Some(AttributeValue::Dictionary(output_values)) = &nodeid_to_dictionary.get(output_node_id) {
+                     Some(output_values)
+                } else {
+                    None
+                }
+            } else {
+                None
+            } {
+                output_values.get(output_name)
+            } else {
+                None
+            };
+
+            if let Some(output_val) = output_val {
+                if let Some(input_node_id) = inputid_to_nodeid_index.get(input_pin_id) {
+                    if let Some(AttributeValue::Dictionary(input_values)) = &nodeid_to_dictionary.get(input_node_id) {
+                        let mut updated_input_values = input_values.clone();
+                        updated_input_values.insert(input_name.to_string(), output_val.clone());
+
+                        nodeid_to_dictionary.insert(*input_node_id, AttributeValue::Dictionary(updated_input_values));
+                    }
+                }
+            }
+        }
+
+        nodeid_to_dictionary
+    }
+
+    fn index_node_inputs(editor_resource: &EditorResource) -> HashMap<InputPinId, imnodes::NodeId> {
+        let mut index: HashMap<InputPinId, imnodes::NodeId> = HashMap::new();
+
+        if let EditorResource::Node {
+            id: Some(id),
+            resources
+        } = editor_resource { 
+            for r in resources.iter().filter_map(|f| match f {
+                NodeResource::Input(_, Some(input_id)) => Some(input_id),
+                _ => None
+            }) {
+                index.insert(*r, *id);
+            }
+        }
+        index
+    }
+
+    fn index_node_outputs(editor_resource: &EditorResource) -> HashMap<OutputPinId, imnodes::NodeId> {
+        let mut index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
+
+        if let EditorResource::Node {
+            id: Some(id),
+            resources
+        } = editor_resource { 
+            for r in resources.iter().filter_map(|f| match f {
+                NodeResource::Output(_, _, Some(..), Some(output_id)) => Some(output_id),
+                _ => None
+            }) {
+                index.insert(*r, *id);
+            }
+        }
+        index
+    }
+
+    // Indexes all of the attribute and output values to an AttributeVale::Dictionary
+    // Returns a hashmap so that it can be merged with other maps
+    fn index_node_state_to_dictionary(editor_resource: &EditorResource) -> HashMap<imnodes::NodeId, AttributeValue> {
+        let mut index: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
+        let mut attribute_dictionary: HashMap<String, AttributeValue> = HashMap::new();
+
+        if let EditorResource::Node {
+            id: Some(id),
+            resources
+        } = editor_resource {
+            resources.iter().for_each(|f| {
+                match f {
+                    NodeResource::Attribute(name, _, Some(v), _) => {
+                        attribute_dictionary.insert(name().to_string(), v.clone());
+                    },
+                    NodeResource::Output(name, _, Some(v), _) => {
+                        attribute_dictionary.insert(name().to_string(), v.clone());
+                    },
+                    NodeResource::Input(name, Some(..)) => {
+                        attribute_dictionary.insert(name().to_string(), AttributeValue::Empty);
+                    }
+                    _ => {}
+                }
+            });
+
+            index.insert(*id, AttributeValue::Dictionary(attribute_dictionary));
+        }
+
+        index
+    }
 }
 
 impl NodeResource {
@@ -177,8 +298,8 @@ pub enum EditorResource {
     },
     Link {
         id: imnodes::LinkId,
-        start: imnodes::OutputPinId,
-        end: imnodes::InputPinId,
+        start: (String, imnodes::OutputPinId),
+        end: (String, imnodes::InputPinId),
     },
 }
 
