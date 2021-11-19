@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use atlier::prelude::new_gui_system;
 use atlier::prelude::ControlState;
 use atlier::prelude::GUIUpdate;
@@ -18,6 +20,13 @@ struct test {
 
 impl test {
     fn node(&mut self) -> Vec<NodeResource> { 
+
+        let mut map: HashMap<String, AttributeValue> = HashMap::new();
+
+        map.insert("string".to_string(), Value::Bool(false).into());
+        map.insert("int32".to_string(), Value::Bool(false).into());
+        map.insert("float32".to_string(), Value::Bool(false).into());
+
         vec![
             NodeResource::Title("test node"),
             NodeResource::Attribute(
@@ -32,12 +41,18 @@ impl test {
                 Some(self.rhs.to_owned()),
                 None
             ),
+            NodeResource::Attribute(
+                ||"types",
+                AttributeValue::input,
+                Some(AttributeValue::Dictionary(map)),
+                None,
+            ),
             NodeResource::Output(
                 || "output",
                 |state| {
                     let sum = if let Some(values) = state.get("self") {
                         values.iter().map(|f| {
-                            let result = if let NodeResource::Attribute(n, _, Some(AttributeValue::System(Value::FloatRange(c, _, _))), _) = f {
+                            let result = if let NodeResource::Attribute(n, _, Some(AttributeValue::Literal(Value::FloatRange(c, _, _))), _) = f {
                                 *c as f32
                             } else {
                                 0.0

@@ -19,7 +19,7 @@ pub trait NodeEventHandler {
 }
 
 pub trait NodeEditor {
-    type State; 
+    type State;
 
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
@@ -52,7 +52,7 @@ pub struct NodeModule {
 
 impl<'a> NodeEditor for NodeModule {
     type State = EditorResource;
-    
+
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
         editor_context: &imnodes::EditorContext,
@@ -99,7 +99,10 @@ impl<'a> NodeEditor for NodeModule {
                 nodescope.add_titlebar(|| ui.text("debug"));
                 nodescope.attribute(debug_attr, || {
                     ui.set_next_item_width(400.0);
-                    if let Some(listboxtoken) = imgui::ListBox::new("debug state").size([400.0, 500.0]).begin(ui) {
+                    if let Some(listboxtoken) = imgui::ListBox::new("debug state")
+                        .size([400.0, 500.0])
+                        .begin(ui)
+                    {
                         if let Some(resources_tree) = imgui::TreeNode::new("resources").push(ui) {
                             self.resources.iter().for_each(|f| {
                                 if let EditorResource::Node {
@@ -108,9 +111,11 @@ impl<'a> NodeEditor for NodeModule {
                                 } = f
                                 {
                                     let tree_label = format!("Node: {:?}", i);
-        
+
                                     ui.set_next_item_width(120.0);
-                                    if let Some(node_token) = imgui::TreeNode::new(tree_label).push(ui) {
+                                    if let Some(node_token) =
+                                        imgui::TreeNode::new(tree_label).push(ui)
+                                    {
                                         resources.iter().for_each(|n| {
                                             let name = &n.name();
                                             let state = &n.debug_state();
@@ -126,25 +131,27 @@ impl<'a> NodeEditor for NodeModule {
                                                 ));
                                                 ui.text(name);
                                                 ui.text(state);
-        
+
                                                 node_resource_token.pop();
                                             }
                                         });
-        
+
                                         node_token.pop();
                                     }
                                 };
-        
+
                                 if let EditorResource::Link { start, end, id } = f {
                                     let tree_label = format!("Link: {:?}", *id);
-        
+
                                     ui.set_next_item_width(120.0);
-                                    if let Some(link_item) = imgui::TreeNode::new(tree_label).push(ui) {
+                                    if let Some(link_item) =
+                                        imgui::TreeNode::new(tree_label).push(ui)
+                                    {
                                         ui.text("linked--");
-        
+
                                         let start = format!("{:#?}", start);
                                         let end = format!("{:#?}", end);
-        
+
                                         ui.text(start);
                                         ui.text(end);
                                         link_item.pop();
@@ -153,35 +160,44 @@ impl<'a> NodeEditor for NodeModule {
                             });
                             resources_tree.pop();
                         }
-                    
+
                         listboxtoken.end();
                     }
                 });
             });
         } else if let (true, None) = self.debug {
-            self.debug = (true, Some((self.id_gen.next_node(), self.id_gen.next_attribute())));
+            self.debug = (
+                true,
+                Some((self.id_gen.next_node(), self.id_gen.next_attribute())),
+            );
         }
 
         let next_resources = self.resources.iter_mut().map(|r| {
-            if let EditorResource::Node {
-                id, 
-                resources,
-            } = r { 
-                let selfres = resources.to_vec();
-                if selfres.iter().any(|f| match f { NodeResource::Output(..) => true, _ => false }) {
-    
-                    let update: Vec<NodeResource> = selfres.iter().map(|n| {
+            if let EditorResource::Node { id, resources } = r {
+                let self_res = resources.to_vec();
+                if self_res.iter().any(|f| match f {
+                    NodeResource::Output(..) => true,
+                    _ => false,
+                }) {
+                    let update: Vec<NodeResource> = self_res
+                        .iter()
+                        .map(|n| {
+                            let mut state = HashMap::<String, Vec<NodeResource>>::new();
+                            state.insert("self".to_string(), self_res.to_vec());
+                            if let NodeResource::Output(v, func, _, i) = n {
+                                let next = NodeResource::Output(
+                                    v.to_owned(),
+                                    func.to_owned(),
+                                    func(state),
+                                    *i,
+                                );
+                                return next;
+                            } else {
+                                return n.to_owned();
+                            }
+                        })
+                        .collect();
 
-                    let mut state = HashMap::<String, Vec<NodeResource>>::new();
-                    state.insert("self".to_string(), selfres.to_vec());
-                        if let NodeResource::Output(v, func, _, i) = n { 
-                            let next = NodeResource::Output(v.to_owned(), func.to_owned(), func(state), *i);
-                            return next;
-                        } else {
-                            return n.to_owned();
-                        }
-                    }).collect();
-    
                     return EditorResource::Node {
                         resources: update,
                         id: id.clone(),

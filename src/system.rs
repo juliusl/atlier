@@ -29,14 +29,14 @@ pub enum Value {
     Float(f32),
     Int(i32),
     Bool(bool),
-    FloatRange(f64, f64, f64),
-    IntRange(i64, i64, i64),
+    FloatRange(f32, f32, f32),
+    IntRange(i32, i32, i32),
     TextBuffer(String),
 }
 
 impl Into<AttributeValue> for Value {
     fn into(self) -> AttributeValue {
-        AttributeValue::System(self)
+        AttributeValue::Literal(self)
     }
 }
 

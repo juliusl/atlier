@@ -4,7 +4,6 @@ use specs::DenseVecStorage;
 use specs::prelude::*;
 use crate::Resource;
 use std::collections::HashMap;
-
 use super::{NodeResource, resource::EditorResource};
 
 fn expression(name: &'static str) -> Vec<NodeResource> {
@@ -40,6 +39,25 @@ fn index_state(state: Vec<EditorResource>) -> HashMap<(String, InputPinId), Node
 
     idx
 }
+
+// fn index_state(state: Vec<EditorResource>) -> HashMap<String, AttributeValue> {
+//     // input -> nodeid 
+//     let mut idx: HashMap<(String, InputPinId), NodeId> = std::collections::HashMap::new();
+//     state.iter().for_each(|r| {
+//         if let EditorResource::Node {
+//             resources,
+//             id: Some(node_id),
+//         } = r {
+//             resources.iter().for_each(|r| {
+//                 if let NodeResource::Input(name, Some(input_id)) = r {
+//                     idx.insert((name().to_string(), *input_id), *node_id);
+//                 }
+//             })
+//         }
+//     });
+
+//     idx
+// }
 
 pub struct Sum(EditorResource); 
 

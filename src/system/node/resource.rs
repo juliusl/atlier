@@ -4,13 +4,15 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
-    System(crate::system::Value),
+    Literal(crate::system::Value),
+    Container(Vec<AttributeValue>),
+    Dictionary(HashMap<String, AttributeValue>),
 }
 
 impl AttributeValue {
     pub fn slider(name: String, ui: &imgui::Ui, value: &mut AttributeValue) {
-        match value {
-            AttributeValue::System(v) => match v {
+        if let AttributeValue::Literal(v) = value {
+            match v {
                 Value::FloatRange(v, min, max) => {
                     ui.set_next_item_width(130.0);
                     imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
@@ -18,28 +20,59 @@ impl AttributeValue {
                 Value::IntRange(v, min, max) => {
                     ui.set_next_item_width(130.0);
                     imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
-                },
-                _ => {} 
+                }
+                _ => {}
             }
-        };
+        }
     }
 
     pub fn input(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
-        match value {
-            AttributeValue::System(v) => match v {
+        if let AttributeValue::Literal(v) = value {
+            match v {
                 Value::TextBuffer(text) => {
                     ui.set_next_item_width(130.0);
                     imgui::InputText::new(ui, label, text).build();
-                },
+                }
                 Value::Int(int) => {
                     ui.set_next_item_width(130.0);
                     imgui::InputInt::new(ui, label, int).build();
-                },
+                }
                 Value::Float(float) => {
                     ui.set_next_item_width(130.0);
                     imgui::InputFloat::new(ui, label, float).build();
-                },
-                _ => {},
+                }
+                _ => {}
+            }
+        } else if let AttributeValue::Dictionary(map) = value {
+
+            let selected = map.iter().find(|p| {
+                if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
+                    *selected 
+                } else {
+                    false
+                }
+            });
+
+            let preview_value = if let Some(s) = selected {
+                s.0
+            } else {
+                ""
+            };
+
+            ui.set_next_item_width(130.0);
+            if let Some(t) = imgui::ComboBox::new(label).preview_value(preview_value).begin(ui) {
+                for (attr_name, attr) in map {
+                    if let AttributeValue::Literal(Value::Bool(selected)) = attr {
+                        if imgui::Selectable::new(attr_name).selected(*selected).build(ui) {
+                            ui.set_item_default_focus();
+                            ui.text(attr_name);
+                            *selected = true;
+                        } else {
+                            *selected = false;
+                        }
+                    }
+                }
+                t.end();
             }
         }
     }
@@ -49,10 +82,12 @@ impl AttributeValue {
 pub enum NodeResource {
     Title(&'static str),
     Input(fn() -> &'static str, Option<imnodes::InputPinId>), //
-    Output(fn() -> &'static str, 
-        fn(state: HashMap::<String, Vec<NodeResource>>) -> Option<AttributeValue>, 
-        Option<AttributeValue>, 
-        Option<imnodes::OutputPinId>), // <- this is the visitor
+    Output(
+        fn() -> &'static str,
+        fn(state: HashMap<String, Vec<NodeResource>>) -> Option<AttributeValue>,
+        Option<AttributeValue>,
+        Option<imnodes::OutputPinId>,
+    ), // <- this is the visitor
     Attribute(
         fn() -> &'static str,
         fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
@@ -66,7 +101,7 @@ impl NodeResource {
         match self {
             NodeResource::Title(s) => s.to_string(),
             NodeResource::Input(s, _) => s().to_string(),
-            NodeResource::Output(s,..) => s().to_string(),
+            NodeResource::Output(s, ..) => s().to_string(),
             NodeResource::Attribute(s, _, _, _) => s().to_string(),
         }
     }
@@ -75,7 +110,7 @@ impl NodeResource {
         match self {
             NodeResource::Title(_) => String::new(),
             NodeResource::Input(_, v) => format!("{:#?}", v),
-            NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}",  o, v),
+            NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
         }
     }
@@ -142,8 +177,8 @@ pub enum EditorResource {
     },
     Link {
         id: imnodes::LinkId,
-        start: imnodes::OutputPinId, 
-        end: imnodes::InputPinId
+        start: imnodes::OutputPinId,
+        end: imnodes::InputPinId,
     },
 }
 
