@@ -1,6 +1,6 @@
-use imnodes::{InputPinId, OutputPinId};
 use super::{Node, NodeEditor};
 use crate::system::Value;
+use imnodes::{InputPinId, OutputPinId};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
@@ -47,26 +47,27 @@ impl AttributeValue {
                 _ => {}
             }
         } else if let AttributeValue::Dictionary(map) = value {
-
             let selected = map.iter().find(|p| {
                 if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
-                    *selected 
+                    *selected
                 } else {
                     false
                 }
             });
 
-            let preview_value = if let Some(s) = selected {
-                s.0
-            } else {
-                ""
-            };
+            let preview_value = if let Some(s) = selected { s.0 } else { "" };
 
             ui.set_next_item_width(130.0);
-            if let Some(t) = imgui::ComboBox::new(label).preview_value(preview_value).begin(ui) {
+            if let Some(t) = imgui::ComboBox::new(label)
+                .preview_value(preview_value)
+                .begin(ui)
+            {
                 for (attr_name, attr) in map {
                     if let AttributeValue::Literal(Value::Bool(selected)) = attr {
-                        if imgui::Selectable::new(attr_name).selected(*selected).build(ui) {
+                        if imgui::Selectable::new(attr_name)
+                            .selected(*selected)
+                            .build(ui)
+                        {
                             ui.set_item_default_focus();
                             ui.text(attr_name);
                             *selected = true;
@@ -87,24 +88,38 @@ pub enum NodeResource {
     Input(fn() -> &'static str, Option<imnodes::InputPinId>),
     Output(
         fn() -> &'static str,
-        fn(state: HashMap<String, Vec<NodeResource>>) -> Option<AttributeValue>,
+        fn(state: &HashMap<String, AttributeValue>) -> Option<AttributeValue>,
         Option<AttributeValue>,
         Option<imnodes::OutputPinId>,
-    ), // <- this is the visitor
+    ),
     Attribute(
         fn() -> &'static str,
         fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     ),
+    OutputWithAttribute(
+        fn() -> &'static str,
+        fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
+        fn(state: &HashMap<String, AttributeValue>) -> Option<AttributeValue>,
+        Option<AttributeValue>,
+        Option<imnodes::OutputPinId>,
+        Option<imnodes::AttributeId>,
+    ),
 }
 
 impl NodeResource {
-    pub fn index_editor_state(resources: Vec<EditorResource>) -> HashMap<imnodes::NodeId, AttributeValue> {
+    pub fn index_editor_state(
+        resources: Vec<EditorResource>,
+    ) -> HashMap<imnodes::NodeId, AttributeValue> {
         // First get all of the links
-        let links = resources
-            .iter()
-            .filter_map(|r| if let EditorResource::Link{start, end, ..} = r { Some((start, end)) } else { None });
+        let links = resources.iter().filter_map(|r| {
+            if let EditorResource::Link { start, end, .. } = r {
+                Some((start, end))
+            } else {
+                None
+            }
+        });
 
         let mut inputid_to_nodeid_index: HashMap<InputPinId, imnodes::NodeId> = HashMap::new();
         let mut outputid_to_nodeid_index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
@@ -122,29 +137,41 @@ impl NodeResource {
 
         // Merge the attributes from
         for ((output_name, output_pin_id), (input_name, input_pin_id)) in links {
-            let output_val = if let Some(output_values) = if let Some(output_node_id) = outputid_to_nodeid_index.get(output_pin_id) {
-                if let Some(AttributeValue::Dictionary(output_values)) = &nodeid_to_dictionary.get(output_node_id) {
-                     Some(output_values)
-                } else {
-                    None
-                }
-            } else {
-                None
+            // This looks like a lot but it's pretty straight-forward
+            match match match outputid_to_nodeid_index.get(output_pin_id) {
+                // First check to see if we have the output node
+                Some(output_node_id) => match &nodeid_to_dictionary.get(output_node_id) {
+                    Some(AttributeValue::Dictionary(output_values)) => Some(output_values),
+                    _ => None,
+                },
+                None => None,
             } {
-                output_values.get(output_name)
-            } else {
-                None
-            };
+                // Next check to see if that output node has a value
+                Some(output_values) => output_values.get(output_name),
+                None => None,
+            } {
+                Some(output_val) => {
+                    // Then update the state of the input node and add that value to it's state at the entry of the connected input 
+                    match inputid_to_nodeid_index.get(input_pin_id) {
+                        Some(input_node_id) => {
+                            match &nodeid_to_dictionary.get(input_node_id) {
+                                Some(AttributeValue::Dictionary(input_values)) => {
+                                    let mut updated_input_values = input_values.clone();
+                                    updated_input_values.insert(input_name.to_string(), output_val.clone());
 
-            if let Some(output_val) = output_val {
-                if let Some(input_node_id) = inputid_to_nodeid_index.get(input_pin_id) {
-                    if let Some(AttributeValue::Dictionary(input_values)) = &nodeid_to_dictionary.get(input_node_id) {
-                        let mut updated_input_values = input_values.clone();
-                        updated_input_values.insert(input_name.to_string(), output_val.clone());
-
-                        nodeid_to_dictionary.insert(*input_node_id, AttributeValue::Dictionary(updated_input_values));
+                                    nodeid_to_dictionary.insert(
+                                        *input_node_id,
+                                        AttributeValue::Dictionary(updated_input_values),
+                                    );
+                                }
+                                _ => (),
+                            }
+                        }
+                        _ => (),
                     }
                 }
+                _ => (),
+            // TODO: This happens new connections, but stale connections need to be updated as well
             }
         }
 
@@ -156,11 +183,12 @@ impl NodeResource {
 
         if let EditorResource::Node {
             id: Some(id),
-            resources
-        } = editor_resource { 
+            resources,
+        } = editor_resource
+        {
             for r in resources.iter().filter_map(|f| match f {
                 NodeResource::Input(_, Some(input_id)) => Some(input_id),
-                _ => None
+                _ => None,
             }) {
                 index.insert(*r, *id);
             }
@@ -168,16 +196,22 @@ impl NodeResource {
         index
     }
 
-    fn index_node_outputs(editor_resource: &EditorResource) -> HashMap<OutputPinId, imnodes::NodeId> {
+    fn index_node_outputs(
+        editor_resource: &EditorResource,
+    ) -> HashMap<OutputPinId, imnodes::NodeId> {
         let mut index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
 
         if let EditorResource::Node {
             id: Some(id),
-            resources
-        } = editor_resource { 
+            resources,
+        } = editor_resource
+        {
             for r in resources.iter().filter_map(|f| match f {
                 NodeResource::Output(_, _, Some(..), Some(output_id)) => Some(output_id),
-                _ => None
+                NodeResource::OutputWithAttribute(_, _, _, Some(..), Some(output_id), ..) => {
+                    Some(output_id)
+                }
+                _ => None,
             }) {
                 index.insert(*r, *id);
             }
@@ -187,27 +221,31 @@ impl NodeResource {
 
     // Indexes all of the attribute and output values to an AttributeVale::Dictionary
     // Returns a hashmap so that it can be merged with other maps
-    fn index_node_state_to_dictionary(editor_resource: &EditorResource) -> HashMap<imnodes::NodeId, AttributeValue> {
+    fn index_node_state_to_dictionary(
+        editor_resource: &EditorResource,
+    ) -> HashMap<imnodes::NodeId, AttributeValue> {
         let mut index: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
         let mut attribute_dictionary: HashMap<String, AttributeValue> = HashMap::new();
 
         if let EditorResource::Node {
             id: Some(id),
-            resources
-        } = editor_resource {
-            resources.iter().for_each(|f| {
-                match f {
-                    NodeResource::Attribute(name, _, Some(v), _) => {
-                        attribute_dictionary.insert(name().to_string(), v.clone());
-                    },
-                    NodeResource::Output(name, _, Some(v), _) => {
-                        attribute_dictionary.insert(name().to_string(), v.clone());
-                    },
-                    NodeResource::Input(name, Some(..)) => {
-                        attribute_dictionary.insert(name().to_string(), AttributeValue::Empty);
-                    }
-                    _ => {}
+            resources,
+        } = editor_resource
+        {
+            resources.iter().for_each(|f| match f {
+                NodeResource::Attribute(name, _, Some(v), _) => {
+                    attribute_dictionary.insert(name().to_string(), v.clone());
                 }
+                NodeResource::Output(name, _, Some(v), _) => {
+                    attribute_dictionary.insert(name().to_string(), v.clone());
+                }
+                NodeResource::OutputWithAttribute(name, _, _, Some(v), _, _) => {
+                    attribute_dictionary.insert(name().to_string(), v.clone());
+                }
+                NodeResource::Input(name, Some(..)) => {
+                    attribute_dictionary.insert(name().to_string(), AttributeValue::Empty);
+                }
+                _ => {}
             });
 
             index.insert(*id, AttributeValue::Dictionary(attribute_dictionary));
@@ -224,6 +262,7 @@ impl NodeResource {
             NodeResource::Input(s, _) => s().to_string(),
             NodeResource::Output(s, ..) => s().to_string(),
             NodeResource::Attribute(s, _, _, _) => s().to_string(),
+            NodeResource::OutputWithAttribute(s, _, _, _, _, _) => s().to_string(),
         }
     }
 
@@ -233,6 +272,9 @@ impl NodeResource {
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
+            NodeResource::OutputWithAttribute(_, _, _, v, o, a) => {
+                format!("{:#?} {:#?} {:#?}", v, o, a)
+            }
         }
     }
 }
@@ -259,6 +301,25 @@ impl Node for NodeResource {
                     display(name.to_string(), &ui, attr);
                 });
             }
+            NodeResource::OutputWithAttribute(
+                name,
+                display,
+                _,
+                attr,
+                Some(output_id),
+                Some(attr_id),
+            ) => {
+                let name = name();
+
+                if let Some(attr) = attr {
+                    node.attribute(attr_id.clone(), || {
+                        display(name.to_string(), &ui, attr);
+                    });
+                }
+                node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
+                    ui.text(name);
+                });
+            }
             _ => return,
         }
     }
@@ -275,6 +336,16 @@ impl Node for NodeResource {
                 }
                 NodeResource::Output(name, vfn, v, None) => {
                     NodeResource::Output(name, vfn, v, Some(id_gen.next_output_pin()))
+                }
+                NodeResource::OutputWithAttribute(name, display, vfn, val, None, None) => {
+                    NodeResource::OutputWithAttribute(
+                        name,
+                        display,
+                        vfn,
+                        val,
+                        Some(id_gen.next_output_pin()),
+                        Some(id_gen.next_attribute()),
+                    )
                 }
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))

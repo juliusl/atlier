@@ -121,8 +121,7 @@ impl<'a> NodeEditor for NodeModule {
                                                 if let Some(node_id_token) =
                                                     imgui::TreeNode::new("state_index").push(ui)
                                                 {
-                                                    if let AttributeValue::Dictionary(dictionary) =
-                                                        v
+                                                    if let AttributeValue::Dictionary(dictionary) = v
                                                     {
                                                         for (k, v) in dictionary {
                                                             if let Some(dictionary_value_token) =
@@ -196,7 +195,11 @@ impl<'a> NodeEditor for NodeModule {
         }
 
         let next_resources = self.resources.iter_mut().map(|r| {
-            if let EditorResource::Node { id, resources } = r {
+            if let EditorResource::Node {
+                id: Some(nodeid),
+                resources,
+            } = r
+            {
                 let self_res = resources.to_vec();
                 if self_res.iter().any(|f| match f {
                     NodeResource::Output(..) => true,
@@ -205,16 +208,40 @@ impl<'a> NodeEditor for NodeModule {
                     let update: Vec<NodeResource> = self_res
                         .iter()
                         .map(|n| {
-                            let mut state = HashMap::<String, Vec<NodeResource>>::new();
-                            state.insert("self".to_string(), self_res.to_vec());
-                            if let NodeResource::Output(v, func, _, i) = n {
-                                let next = NodeResource::Output(
-                                    v.to_owned(),
-                                    func.to_owned(),
-                                    func(state),
-                                    *i,
-                                );
-                                return next;
+                            if let Some(state) = &self.state {
+                                if let Some(AttributeValue::Dictionary(state))  = state.get(nodeid) {
+                                    match n {
+                                        NodeResource::Output(v, func, _, i) => {
+                                            let next = NodeResource::Output(
+                                                v.to_owned(),
+                                                func.to_owned(),
+                                                func(state),
+                                                *i,
+                                            );
+                                            return next;
+                                        }
+                                        NodeResource::OutputWithAttribute(
+                                            v, 
+                                            display, 
+                                            output,
+                                            _,
+                                            output_id,
+                                            attr_id) => {
+                                            let next = NodeResource::OutputWithAttribute(
+                                                v.to_owned(),
+                                                display.to_owned(),
+                                                output.to_owned(),
+                                                output(state),
+                                                *output_id,
+                                                *attr_id,
+                                            );
+                                            return next;
+                                        }
+                                        _ => return n.to_owned(),
+                                    }
+                                } else {
+                                    n.to_owned()
+                                }
                             } else {
                                 return n.to_owned();
                             }
@@ -223,7 +250,7 @@ impl<'a> NodeEditor for NodeModule {
 
                     return EditorResource::Node {
                         resources: update,
-                        id: id.clone(),
+                        id: Some(*nodeid),
                     };
                 }
                 return r.to_owned();
@@ -233,6 +260,12 @@ impl<'a> NodeEditor for NodeModule {
         });
 
         self.resources = next_resources.collect();
+
+        if let None = self.state {
+            let state_index = NodeResource::index_editor_state(self.resources.to_vec());
+            self.state = Some(state_index);
+            
+        }
     }
 
     fn get_state(&self) -> Vec<EditorResource> {
@@ -268,16 +301,22 @@ impl<'a> NodeEventHandler for NodeModule {
                     {
                         if *id == start_node {
                             let name = resources.iter().find_map(|f| {
-                                if let NodeResource::Output(start_node_name, _, _, Some(start_id)) =
-                                    f
-                                {
-                                    if *start_id == s {
-                                        Some(start_node_name())
-                                    } else {
-                                        None
+                                match f {
+                                    NodeResource::Output(start_node_name, _, _, Some(start_id)) => {
+                                        if *start_id == s {
+                                            Some(start_node_name())
+                                        } else {
+                                            None
+                                        }
                                     }
-                                } else {
-                                    None
+                                    NodeResource::OutputWithAttribute(start_node_name, _, _, _, Some(start_id), _) => {
+                                        if *start_id == s {
+                                            Some(start_node_name())
+                                        } else {
+                                            None
+                                        }
+                                    }
+                                    _ => None,
                                 }
                             });
                             return name;
@@ -321,9 +360,7 @@ impl<'a> NodeEventHandler for NodeModule {
                         end: (input_name.to_string(), e),
                     });
 
-                    let state_index = NodeResource::index_editor_state(
-                        self.resources.to_vec(),
-                    );
+                    let state_index = NodeResource::index_editor_state(self.resources.to_vec());
                     self.state = Some(state_index);
                 }
             }
@@ -345,6 +382,9 @@ impl<'a> NodeEventHandler for NodeModule {
             .collect();
 
         self.resources = next;
+
+        let state_index = NodeResource::index_editor_state(self.resources.to_vec());
+        self.state = Some(state_index);
     }
 }
 

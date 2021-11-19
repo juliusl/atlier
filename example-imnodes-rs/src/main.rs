@@ -12,13 +12,12 @@ use atlier::system::Value;
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
-struct test {
+struct Test {
     lhs: AttributeValue,
     rhs: AttributeValue,
-    output: Option<AttributeValue>,
 }
 
-impl test {
+impl Test {
     fn node(&mut self) -> Vec<NodeResource> { 
 
         let mut map: HashMap<String, AttributeValue> = HashMap::new();
@@ -50,22 +49,28 @@ impl test {
             NodeResource::Output(
                 || "output",
                 |state| {
-                    let sum = if let Some(values) = state.get("self") {
-                        values.iter().map(|f| {
-                            let result = if let NodeResource::Attribute(n, _, Some(AttributeValue::Literal(Value::FloatRange(c, _, _))), _) = f {
-                                *c as f32
-                            } else {
-                                0.0
-                            };
-                            result 
-                        })
-                        .sum::<f32>()
-                    } else {
-                        0.0
-                    };
-                    
-                    Some(Value::Float(sum).into())
+                    if let (
+                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
+                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
+                        return Some(Value::Float(lhs+rhs).into())
+                    }
+                    None
                 },
+                None,
+                None,
+            ),
+            NodeResource::OutputWithAttribute(
+                || "output_with_attr",
+                AttributeValue::input,
+                |state| {
+                    if let (
+                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
+                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
+                        return Some(Value::Float(lhs+rhs).into())
+                    }
+                    None
+                },
+                None,
                 None,
                 None,
             )
@@ -118,10 +123,9 @@ fn main() {
             id: None,
             },
             EditorResource::Node {
-                resources: test { 
+                resources: Test { 
                     lhs: Value::FloatRange(10.0, 0.0, 100.0).into(), 
-                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into(), 
-                    output: None }.node(),
+                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into()}.node(),
                 id: None,
             }
         ], true);
