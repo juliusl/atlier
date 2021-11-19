@@ -104,6 +104,7 @@ where
 
                     let ui = self.imgui.frame();
 
+                    // App entry point
                     for window in self.app.iter_mut() {
                         window.show(&ui);
                     }
