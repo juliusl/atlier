@@ -10,6 +10,55 @@ use atlier::system::Value;
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
+struct test {
+    lhs: AttributeValue,
+    rhs: AttributeValue,
+    output: Option<AttributeValue>,
+}
+
+impl test {
+    fn node(&mut self) -> Vec<NodeResource> { 
+        vec![
+            NodeResource::Title("test node"),
+            NodeResource::Attribute(
+                || "lhs",
+                AttributeValue::slider,
+                Some(self.lhs.to_owned()),
+                None 
+            ),
+            NodeResource::Attribute(
+                || "rhs",
+                AttributeValue::slider,
+                Some(self.rhs.to_owned()),
+                None
+            ),
+            NodeResource::Output(
+                || "output",
+                |state| {
+                    let sum = if let Some(values) = state.get("self") {
+                        values.iter().map(|f| {
+                            let result = if let NodeResource::Attribute(n, _, Some(AttributeValue::System(Value::FloatRange(c, _, _))), _) = f {
+                                *c as f32
+                            } else {
+                                0.0
+                            };
+                            result 
+                        })
+                        .sum::<f32>()
+                    } else {
+                        0.0
+                    };
+                    
+                    Some(Value::Float(sum).into())
+                },
+                None,
+                None,
+            )
+        ]
+    }
+
+}
+
 fn main() {
     let attr = NodeResource::Attribute(
         || "test",
@@ -47,10 +96,19 @@ fn main() {
                 attr,
                 attrstr,
                 attrfloat,
-                NodeResource::Output(|| "output", None),
+                NodeResource::Output(|| "output", |_| {
+                    Some(Value::Float(5.0).into())
+                }, None, None),
             ],
             id: None,
             },
+            EditorResource::Node {
+                resources: test { 
+                    lhs: Value::FloatRange(10.0, 0.0, 100.0).into(), 
+                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into(), 
+                    output: None }.node(),
+                id: None,
+            }
         ], true);
 
     // Create the new gui_system,

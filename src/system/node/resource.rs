@@ -1,5 +1,6 @@
 use super::{Node, NodeEditor};
 use crate::system::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
@@ -47,8 +48,11 @@ impl AttributeValue {
 #[derive(Clone)]
 pub enum NodeResource {
     Title(&'static str),
-    Input(fn() -> &'static str, Option<imnodes::InputPinId>),
-    Output(fn() -> &'static str, Option<imnodes::OutputPinId>),
+    Input(fn() -> &'static str, Option<imnodes::InputPinId>), //
+    Output(fn() -> &'static str, 
+        fn(state: HashMap::<String, Vec<NodeResource>>) -> Option<AttributeValue>, 
+        Option<AttributeValue>, 
+        Option<imnodes::OutputPinId>), // <- this is the visitor
     Attribute(
         fn() -> &'static str,
         fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
@@ -62,16 +66,16 @@ impl NodeResource {
         match self {
             NodeResource::Title(s) => s.to_string(),
             NodeResource::Input(s, _) => s().to_string(),
-            NodeResource::Output(s, _) => s().to_string(),
+            NodeResource::Output(s,..) => s().to_string(),
             NodeResource::Attribute(s, _, _, _) => s().to_string(),
         }
     }
 
-    pub fn state(&self) -> String {
+    pub fn debug_state(&self) -> String {
         match self {
             NodeResource::Title(_) => String::new(),
             NodeResource::Input(_, v) => format!("{:#?}", v),
-            NodeResource::Output(_, v) => format!("{:#?}", v),
+            NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}",  o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
         }
     }
@@ -87,7 +91,7 @@ impl Node for NodeResource {
                     ui.text(name);
                 });
             }
-            NodeResource::Output(name, Some(id)) => {
+            NodeResource::Output(name, _, Some(_), Some(id)) => {
                 let name = name();
                 node.add_output(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
@@ -113,8 +117,8 @@ impl Node for NodeResource {
                 NodeResource::Attribute(name, display, Some(v), None) => {
                     NodeResource::Attribute(name, display, Some(v), Some(id_gen.next_attribute()))
                 }
-                NodeResource::Output(name, None) => {
-                    NodeResource::Output(name, Some(id_gen.next_output_pin()))
+                NodeResource::Output(name, vfn, v, None) => {
+                    NodeResource::Output(name, vfn, v, Some(id_gen.next_output_pin()))
                 }
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))
@@ -144,6 +148,7 @@ pub enum EditorResource {
 }
 
 impl NodeEditor for EditorResource {
+    type State = NodeResource;
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
         _: &imnodes::EditorContext,
@@ -185,5 +190,12 @@ impl NodeEditor for EditorResource {
             }),
             _ => {}
         };
+    }
+
+    fn get_state(&self) -> Vec<Self::State> {
+        match self {
+            EditorResource::Node { resources, .. } => resources.to_vec(),
+            _ => vec![],
+        }
     }
 }

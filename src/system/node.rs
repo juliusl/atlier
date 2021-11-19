@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use imnodes::{editor, CoordinateSystem};
 use imnodes::{EditorContext, IdentifierGenerator};
 
@@ -17,6 +19,8 @@ pub trait NodeEventHandler {
 }
 
 pub trait NodeEditor {
+    type State; 
+
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
         editor_context: &imnodes::EditorContext,
@@ -24,6 +28,9 @@ pub trait NodeEditor {
     ) -> Vec<EditorResource>;
 
     fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui);
+
+    // Return the current state
+    fn get_state(&self) -> Vec<Self::State>;
 }
 
 pub trait Node {
@@ -44,6 +51,8 @@ pub struct NodeModule {
 }
 
 impl<'a> NodeEditor for NodeModule {
+    type State = EditorResource;
+    
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
         editor_context: &imnodes::EditorContext,
@@ -104,7 +113,7 @@ impl<'a> NodeEditor for NodeModule {
                                     if let Some(node_token) = imgui::TreeNode::new(tree_label).push(ui) {
                                         resources.iter().for_each(|n| {
                                             let name = &n.name();
-                                            let state = &n.state();
+                                            let state = &n.debug_state();
                                             ui.set_next_item_width(120.0);
                                             if let Some(node_resource_token) =
                                                 imgui::TreeNode::new(name).push(ui)
@@ -152,6 +161,43 @@ impl<'a> NodeEditor for NodeModule {
         } else if let (true, None) = self.debug {
             self.debug = (true, Some((self.id_gen.next_node(), self.id_gen.next_attribute())));
         }
+
+        let next_resources = self.resources.iter_mut().map(|r| {
+            if let EditorResource::Node {
+                id, 
+                resources,
+            } = r { 
+                let selfres = resources.to_vec();
+                if selfres.iter().any(|f| match f { NodeResource::Output(..) => true, _ => false }) {
+    
+                    let update: Vec<NodeResource> = selfres.iter().map(|n| {
+
+                    let mut state = HashMap::<String, Vec<NodeResource>>::new();
+                    state.insert("self".to_string(), selfres.to_vec());
+                        if let NodeResource::Output(v, func, _, i) = n { 
+                            let next = NodeResource::Output(v.to_owned(), func.to_owned(), func(state), *i);
+                            return next;
+                        } else {
+                            return n.to_owned();
+                        }
+                    }).collect();
+    
+                    return EditorResource::Node {
+                        resources: update,
+                        id: id.clone(),
+                    };
+                }
+                return r.to_owned();
+            } else {
+                return r.to_owned();
+            }
+        });
+
+        self.resources = next_resources.collect();
+    }
+
+    fn get_state(&self) -> Vec<EditorResource> {
+        self.resources.to_vec()
     }
 }
 

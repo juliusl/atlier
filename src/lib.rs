@@ -82,3 +82,14 @@ pub trait State {
     fn get_outputs(&self) -> Self::Outputs;
     fn get_attributes(&self) -> Self::Attributes;
 }
+
+
+// Visitor pattern for resources
+pub trait Resource {
+    type Value; 
+    type Visitor; 
+
+    fn accept(&self, visitor: Self::Visitor) -> Option<Self::Value>;
+
+    fn accept_mut(&mut self, visitor: Self::Visitor) -> Option<Self::Value>;
+}
