@@ -39,7 +39,12 @@ fn expression(name: &'static str) -> Vec<NodeResource> {
                     None => 0.00,
                 };
 
-                Some(Value::Float(lhs + rhs).into())
+                let sum = lhs + rhs;
+                if sum > 0.0 {
+                    Some(Value::Float(sum).into())
+                } else {
+                    None
+                }
             },
             None,
             None,

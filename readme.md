@@ -1,6 +1,6 @@
 # Atlier
 
-Opinionated framework for writing gui-based tools in Rust. 
+An opinionated framework for writing gui-based tools in Rust. 
 
 ## Quick Start - Running the imnodes example from CLI
 If you haven't already, install rust w/ rustup. 

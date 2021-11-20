@@ -76,7 +76,6 @@ impl Test {
             )
         ]
     }
-
 }
 
 fn main() {
