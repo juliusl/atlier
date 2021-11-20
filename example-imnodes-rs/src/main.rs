@@ -1,82 +1,7 @@
-use std::collections::HashMap;
-
-use atlier::prelude::new_gui_system;
-use atlier::prelude::ControlState;
-use atlier::prelude::GUIUpdate;
-use atlier::prelude::NodeResource;
-use atlier::system::AttributeValue;
-use atlier::system::EditorResource;
-use atlier::system::NodeApp;
-use atlier::system::Sum;
-use atlier::system::Value;
+use std::collections::{BTreeMap, HashMap};
+use atlier::{prelude::{ControlState, GUIUpdate, NodeResource, new_gui_system}, system::{AttributeValue, EditorResource, Expression, NodeApp, Value}};
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
-
-struct Test {
-    lhs: AttributeValue,
-    rhs: AttributeValue,
-}
-
-impl Test {
-    fn node(&mut self) -> Vec<NodeResource> { 
-
-        let mut map: HashMap<String, AttributeValue> = HashMap::new();
-
-        map.insert("string".to_string(), Value::Bool(false).into());
-        map.insert("int32".to_string(), Value::Bool(false).into());
-        map.insert("float32".to_string(), Value::Bool(false).into());
-
-        vec![
-            NodeResource::Title("test node"),
-            NodeResource::Attribute(
-                || "lhs",
-                AttributeValue::slider,
-                Some(self.lhs.to_owned()),
-                None 
-            ),
-            NodeResource::Attribute(
-                || "rhs",
-                AttributeValue::slider,
-                Some(self.rhs.to_owned()),
-                None
-            ),
-            NodeResource::Attribute(
-                ||"types",
-                AttributeValue::input,
-                Some(AttributeValue::Dictionary(map)),
-                None,
-            ),
-            NodeResource::Output(
-                || "output",
-                |state| {
-                    if let (
-                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
-                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
-                        return Some(Value::Float(lhs+rhs).into())
-                    }
-                    None
-                },
-                None,
-                None,
-            ),
-            NodeResource::OutputWithAttribute(
-                || "output_with_attr",
-                AttributeValue::input,
-                |state| {
-                    if let (
-                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
-                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
-                        return Some(Value::Float(lhs+rhs).into())
-                    }
-                    None
-                },
-                None,
-                None,
-                None,
-            )
-        ]
-    }
-}
 
 fn main() {
     let attr = NodeResource::Attribute(
@@ -105,10 +30,7 @@ fn main() {
 
     let app = NodeApp::new("node-app".to_string())
         .module(vec![
-            Sum::default().into(),
-            Sum::default().into(),
-            Sum::default().into(),
-            Sum::default().into(),
+            Expression::new_add_node(),
             EditorResource::Node {
             resources: vec![
                 NodeResource::Title("hello"),
@@ -176,4 +98,70 @@ fn main() {
             *control_flow = ControlFlow::Poll;
         }
     });
+}
+
+struct Test {
+    lhs: AttributeValue,
+    rhs: AttributeValue,
+}
+
+impl Test {
+    fn node(&mut self) -> Vec<NodeResource> { 
+
+        let mut map: BTreeMap<String, AttributeValue> = BTreeMap::new();
+
+        map.insert("string".to_string(), Value::Bool(false).into());
+        map.insert("int32".to_string(), Value::Bool(false).into());
+        map.insert("float32".to_string(), Value::Bool(false).into());
+
+        vec![
+            NodeResource::Title("test node"),
+            NodeResource::Attribute(
+                || "lhs",
+                AttributeValue::slider,
+                Some(self.lhs.to_owned()),
+                None 
+            ),
+            NodeResource::Attribute(
+                || "rhs",
+                AttributeValue::slider,
+                Some(self.rhs.to_owned()),
+                None
+            ),
+            NodeResource::Attribute(
+                ||"types",
+                AttributeValue::input,
+                Some(AttributeValue::Map(map)),
+                None,
+            ),
+            NodeResource::Output(
+                || "output",
+                |state| {
+                    if let (
+                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
+                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
+                        return Some(Value::Float(lhs+rhs).into())
+                    }
+                    None
+                },
+                None,
+                None,
+            ),
+            NodeResource::OutputWithAttribute(
+                || "output_with_attr",
+                AttributeValue::input,
+                |state| {
+                    if let (
+                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
+                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
+                        return Some(Value::Float(lhs+rhs).into())
+                    }
+                    None
+                },
+                None,
+                None,
+                None,
+            )
+        ]
+    }
 }

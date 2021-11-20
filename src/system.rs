@@ -16,7 +16,7 @@ pub use node::NodeModule;
 pub use node::NodeApp;
 pub use node::NodeResource;
 pub use node::EditorResource;
-pub use node::Sum;
+pub use node::Expression;
 pub use node::AttributeValue;
 
 pub trait App<'a> {

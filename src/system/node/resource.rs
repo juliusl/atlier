@@ -1,13 +1,13 @@
 use super::{Node, NodeEditor};
 use crate::system::Value;
 use imnodes::{InputPinId, OutputPinId};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
     Literal(crate::system::Value),
     Container(Vec<AttributeValue>),
-    Dictionary(HashMap<String, AttributeValue>),
+    Map(BTreeMap<String, AttributeValue>),
     Empty,
     Error(String),
 }
@@ -46,7 +46,7 @@ impl AttributeValue {
                 }
                 _ => {}
             }
-        } else if let AttributeValue::Dictionary(map) = value {
+        } else if let AttributeValue::Map(map) = value {
             let selected = map.iter().find(|p| {
                 if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
                     *selected
@@ -88,7 +88,7 @@ pub enum NodeResource {
     Input(fn() -> &'static str, Option<imnodes::InputPinId>),
     Output(
         fn() -> &'static str,
-        fn(state: &HashMap<String, AttributeValue>) -> Option<AttributeValue>,
+        fn(state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>,
         Option<AttributeValue>,
         Option<imnodes::OutputPinId>,
     ),
@@ -101,7 +101,7 @@ pub enum NodeResource {
     OutputWithAttribute(
         fn() -> &'static str,
         fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
-        fn(state: &HashMap<String, AttributeValue>) -> Option<AttributeValue>,
+        fn(state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>,
         Option<AttributeValue>,
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
@@ -131,7 +131,7 @@ impl NodeResource {
             let output_index = NodeResource::index_node_outputs(editor_resource);
             outputid_to_nodeid_index.extend(output_index);
 
-            let dictionary = NodeResource::index_node_state_to_dictionary(editor_resource);
+            let dictionary = NodeResource::index_node_state_to_map(editor_resource);
             nodeid_to_dictionary.extend(dictionary);
         }
 
@@ -141,7 +141,7 @@ impl NodeResource {
             match match match outputid_to_nodeid_index.get(output_pin_id) {
                 // First check to see if we have the output node
                 Some(output_node_id) => match &nodeid_to_dictionary.get(output_node_id) {
-                    Some(AttributeValue::Dictionary(output_values)) => Some(output_values),
+                    Some(AttributeValue::Map(output_values)) => Some(output_values),
                     _ => None,
                 },
                 None => None,
@@ -155,13 +155,13 @@ impl NodeResource {
                     match inputid_to_nodeid_index.get(input_pin_id) {
                         Some(input_node_id) => {
                             match &nodeid_to_dictionary.get(input_node_id) {
-                                Some(AttributeValue::Dictionary(input_values)) => {
+                                Some(AttributeValue::Map(input_values)) => {
                                     let mut updated_input_values = input_values.clone();
                                     updated_input_values.insert(input_name.to_string(), output_val.clone());
 
                                     nodeid_to_dictionary.insert(
                                         *input_node_id,
-                                        AttributeValue::Dictionary(updated_input_values),
+                                        AttributeValue::Map(updated_input_values),
                                     );
                                 }
                                 _ => (),
@@ -221,11 +221,11 @@ impl NodeResource {
 
     // Indexes all of the attribute and output values to an AttributeVale::Dictionary
     // Returns a hashmap so that it can be merged with other maps
-    fn index_node_state_to_dictionary(
+    fn index_node_state_to_map(
         editor_resource: &EditorResource,
     ) -> HashMap<imnodes::NodeId, AttributeValue> {
         let mut index: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
-        let mut attribute_dictionary: HashMap<String, AttributeValue> = HashMap::new();
+        let mut attribute_dictionary: BTreeMap<String, AttributeValue> = BTreeMap::new();
 
         if let EditorResource::Node {
             id: Some(id),
@@ -248,7 +248,7 @@ impl NodeResource {
                 _ => {}
             });
 
-            index.insert(*id, AttributeValue::Dictionary(attribute_dictionary));
+            index.insert(*id, AttributeValue::Map(attribute_dictionary));
         }
 
         index
@@ -285,12 +285,14 @@ impl Node for NodeResource {
             NodeResource::Title(title) => node.add_titlebar(|| ui.text(title)),
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
+                ui.set_next_item_width(130.0);
                 node.add_input(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
                 });
             }
             NodeResource::Output(name, _, Some(_), Some(id)) => {
                 let name = name();
+                ui.set_next_item_width(130.0);
                 node.add_output(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
                 });

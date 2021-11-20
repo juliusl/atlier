@@ -9,7 +9,7 @@ pub use resource::EditorResource;
 pub use resource::NodeResource;
 
 mod expression;
-pub use expression::Sum;
+pub use expression::Expression;
 
 use super::App;
 
@@ -121,9 +121,9 @@ impl<'a> NodeEditor for NodeModule {
                                                 if let Some(node_id_token) =
                                                     imgui::TreeNode::new("state_index").push(ui)
                                                 {
-                                                    if let AttributeValue::Dictionary(dictionary) = v
+                                                    if let AttributeValue::Map(map) = v
                                                     {
-                                                        for (k, v) in dictionary {
+                                                        for (k, v) in map {
                                                             if let Some(dictionary_value_token) =
                                                                 imgui::TreeNode::new(k).push(ui)
                                                             {
@@ -209,7 +209,7 @@ impl<'a> NodeEditor for NodeModule {
                         .iter()
                         .map(|n| {
                             if let Some(state) = &self.state {
-                                if let Some(AttributeValue::Dictionary(state))  = state.get(nodeid) {
+                                if let Some(AttributeValue::Map(state))  = state.get(nodeid) {
                                     match n {
                                         NodeResource::Output(v, func, _, i) => {
                                             let next = NodeResource::Output(
@@ -261,11 +261,8 @@ impl<'a> NodeEditor for NodeModule {
 
         self.resources = next_resources.collect();
 
-        if let None = self.state {
-            let state_index = NodeResource::index_editor_state(self.resources.to_vec());
-            self.state = Some(state_index);
-            
-        }
+        let state_index = NodeResource::index_editor_state(self.resources.to_vec());
+        self.state = Some(state_index);
     }
 
     fn get_state(&self) -> Vec<EditorResource> {
@@ -359,9 +356,6 @@ impl<'a> NodeEventHandler for NodeModule {
                         start: (output_name.to_string(), s),
                         end: (input_name.to_string(), e),
                     });
-
-                    let state_index = NodeResource::index_editor_state(self.resources.to_vec());
-                    self.state = Some(state_index);
                 }
             }
         }
@@ -382,9 +376,6 @@ impl<'a> NodeEventHandler for NodeModule {
             .collect();
 
         self.resources = next;
-
-        let state_index = NodeResource::index_editor_state(self.resources.to_vec());
-        self.state = Some(state_index);
     }
 }
 
