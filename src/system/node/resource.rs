@@ -1,7 +1,7 @@
 use super::{Node, NodeEditor};
 use crate::system::Value;
-use imnodes::{InputPinId, OutputPinId};
-use std::collections::{BTreeMap, HashMap};
+use imnodes::{EditorContext, InputPinId, OutputPinId};
+use std::{collections::{BTreeMap, HashMap}, hash::{self, Hash, Hasher}};
 
 #[derive(Debug, Clone)]
 pub enum AttributeValue {
@@ -10,6 +10,25 @@ pub enum AttributeValue {
     Map(BTreeMap<String, AttributeValue>),
     Empty,
     Error(String),
+}
+
+impl Hash for AttributeValue {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        match self {
+                AttributeValue::Literal(l) => match l {
+                    Value::Float(v) => format!("{}", v).hash(state),
+                    Value::Int(i) => i.hash(state),
+                    Value::Bool(b) => b.hash(state),
+                    Value::FloatRange(f, _, _) => format!("{}", f).hash(state),
+                    Value::IntRange(i, _, _) => i.hash(state),
+                    Value::TextBuffer(t) => t.hash(state),
+                },
+                AttributeValue::Container(f) => f.len().hash(state),
+                AttributeValue::Map(m) => m.len().hash(state),
+                AttributeValue::Empty => 1.hash(state),
+                AttributeValue::Error(e) => e.hash(state),
+        }
+    }
 }
 
 impl AttributeValue {
@@ -61,6 +80,10 @@ impl AttributeValue {
                 Value::Float(float) => {
                     ui.set_next_item_width(130.0);
                     imgui::InputFloat::new(ui, label, float).build();
+                }
+                Value::Bool(bool) => {
+                    ui.set_next_item_width(130.0);
+                    ui.checkbox(label, bool);
                 }
                 _ => {}
             }
@@ -189,7 +212,6 @@ impl NodeResource {
                     }
                 }
                 _ => (),
-            // TODO: This happens new connections, but stale connections need to be updated as well
             }
         }
 
@@ -270,6 +292,49 @@ impl NodeResource {
         }
 
         index
+    }
+
+    pub fn get_hash_code(editor_resource: &EditorResource) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+
+        match editor_resource {
+            EditorResource::Node { id: Some(id), resources } => {
+                id.hash(&mut hasher);
+                resources.iter().for_each(|f|{
+                    match f {
+                        NodeResource::Title(s) => s.hash(&mut hasher),
+                        NodeResource::Input(_, Some(input_id)) => input_id.hash(&mut hasher),
+                        NodeResource::Output(_, _, Some(v), Some(output_id)) => {
+                            output_id.hash(&mut hasher);
+                            v.hash(&mut hasher);
+                        },
+                        NodeResource::Attribute(_, _, Some(v), Some(id)) => {
+                            v.hash(&mut hasher);
+                            id.hash(&mut hasher);
+                        },
+                        NodeResource::OutputWithAttribute(_, _, _, Some(v), Some(output_id), Some(attr_id)) => {
+                            v.hash(&mut hasher);
+                            output_id.hash(&mut hasher);
+                            attr_id.hash(&mut hasher)
+                        },
+                        _ => {},
+                    }
+                })
+            },
+            EditorResource::Link { id, start, end } => {
+                id.hash(&mut hasher);
+                let (s, out) = start; 
+                s.hash(&mut hasher);
+                out.hash(&mut hasher);
+
+                let (e, in_id) = end;
+                e.hash(&mut hasher);
+                in_id.hash(&mut hasher);
+            },
+            _ => {},
+        };
+
+        hasher.finish()
     }
 }
 

@@ -137,6 +137,12 @@ impl Test {
                 Some(AttributeValue::Map(map)),
                 None,
             ),
+            NodeResource::Attribute(
+                ||"test_check_box",
+                AttributeValue::input,
+                Some(AttributeValue::Literal(Value::Bool(false))),
+                None,
+            ),
             NodeResource::Output(
                 || "output",
                 |state| {
