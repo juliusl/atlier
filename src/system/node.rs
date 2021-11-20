@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use imnodes::{editor, CoordinateSystem};
 use imnodes::{EditorContext, IdentifierGenerator};
@@ -31,6 +31,8 @@ pub trait NodeEditor {
 
     // Return the current state
     fn get_state(&self) -> Vec<Self::State>;
+
+    fn context_menu(&mut self, ui: &imgui::Ui);
 }
 
 pub trait Node {
@@ -51,6 +53,17 @@ pub struct NodeModule {
     state: Option<HashMap<imnodes::NodeId, AttributeValue>>,
 }
 
+pub fn begin_context_menu<'a>(
+    popup_id: impl AsRef<str>,
+    ui: &'a imgui::Ui<'a>,
+) -> Option<imgui::PopupToken<'a>> {
+    if ui.is_mouse_released(imgui::MouseButton::Right) {
+        ui.open_popup(&popup_id);
+    }
+
+    ui.begin_popup(popup_id)
+}
+
 impl<'a> NodeEditor for NodeModule {
     type State = EditorResource;
 
@@ -63,6 +76,8 @@ impl<'a> NodeEditor for NodeModule {
     }
 
     fn show(&mut self, mut editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {
+        self.context_menu(ui);
+
         // Render nodes
         self.resources
             .iter_mut()
@@ -121,8 +136,7 @@ impl<'a> NodeEditor for NodeModule {
                                                 if let Some(node_id_token) =
                                                     imgui::TreeNode::new("state_index").push(ui)
                                                 {
-                                                    if let AttributeValue::Map(map) = v
-                                                    {
+                                                    if let AttributeValue::Map(map) = v {
                                                         for (k, v) in map {
                                                             if let Some(dictionary_value_token) =
                                                                 imgui::TreeNode::new(k).push(ui)
@@ -209,7 +223,7 @@ impl<'a> NodeEditor for NodeModule {
                         .iter()
                         .map(|n| {
                             if let Some(state) = &self.state {
-                                if let Some(AttributeValue::Map(state))  = state.get(nodeid) {
+                                if let Some(AttributeValue::Map(state)) = state.get(nodeid) {
                                     match n {
                                         NodeResource::Output(v, func, _, i) => {
                                             let next = NodeResource::Output(
@@ -221,12 +235,13 @@ impl<'a> NodeEditor for NodeModule {
                                             return next;
                                         }
                                         NodeResource::OutputWithAttribute(
-                                            v, 
-                                            display, 
+                                            v,
+                                            display,
                                             output,
                                             _,
                                             output_id,
-                                            attr_id) => {
+                                            attr_id,
+                                        ) => {
                                             let next = NodeResource::OutputWithAttribute(
                                                 v.to_owned(),
                                                 display.to_owned(),
@@ -268,6 +283,53 @@ impl<'a> NodeEditor for NodeModule {
     fn get_state(&self) -> Vec<EditorResource> {
         self.resources.to_vec()
     }
+
+    fn context_menu(&mut self, ui: &imgui::Ui) {
+        let window_padding = ui.push_style_var(imgui::StyleVar::WindowPadding([16.0, 8.0]));
+        if let Some(popup_token) = begin_context_menu("editor_context_menu", ui) {
+            let pos = ui.mouse_pos_on_opening_current_popup();
+            let mut added: HashSet<String> = HashSet::new();
+            if let Some(expression_menu_token) = ui.begin_menu("Expressions") {
+                self.resources.clone().iter().filter(|r| match r {
+                    EditorResource::Node { .. } => true,
+                    _ => false,
+                }).for_each(|editor_resource| {
+                    // TODO: This can be optimized by building a node cache on initialization, that way all nodes aren't iterated over and over
+                    let title = editor_resource
+                        .get_state()
+                        .clone()
+                        .iter()
+                        .find_map(|f| match f {
+                            NodeResource::Title(t) => Some(t.clone()),
+                            _ => None,
+                        });
+
+                    match title {
+                        Some(title) if added.insert(title.to_string()) => if imgui::MenuItem::new(title).build(ui) {
+                                    match editor_resource {
+                                        EditorResource::Node { .. } => {
+                                            let new_node = self.id_gen.next_node();
+                                            self.resources
+                                                .push(editor_resource.copy_blank(Some(new_node)));
+
+                                            new_node.set_position(
+                                                pos[0],
+                                                pos[1],
+                                                CoordinateSystem::ScreenSpace,
+                                            );
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                        _ => (),
+                    }
+                });
+                expression_menu_token.end();
+            }
+            popup_token.end();
+        }
+        window_padding.pop();
+    }
 }
 
 impl<'a> NodeEventHandler for NodeModule {
@@ -297,24 +359,29 @@ impl<'a> NodeEventHandler for NodeModule {
                     } = f
                     {
                         if *id == start_node {
-                            let name = resources.iter().find_map(|f| {
-                                match f {
-                                    NodeResource::Output(start_node_name, _, _, Some(start_id)) => {
-                                        if *start_id == s {
-                                            Some(start_node_name())
-                                        } else {
-                                            None
-                                        }
+                            let name = resources.iter().find_map(|f| match f {
+                                NodeResource::Output(start_node_name, _, _, Some(start_id)) => {
+                                    if *start_id == s {
+                                        Some(start_node_name())
+                                    } else {
+                                        None
                                     }
-                                    NodeResource::OutputWithAttribute(start_node_name, _, _, _, Some(start_id), _) => {
-                                        if *start_id == s {
-                                            Some(start_node_name())
-                                        } else {
-                                            None
-                                        }
-                                    }
-                                    _ => None,
                                 }
+                                NodeResource::OutputWithAttribute(
+                                    start_node_name,
+                                    _,
+                                    _,
+                                    _,
+                                    Some(start_id),
+                                    _,
+                                ) => {
+                                    if *start_id == s {
+                                        Some(start_node_name())
+                                    } else {
+                                        None
+                                    }
+                                }
+                                _ => None,
                             });
                             return name;
                         }

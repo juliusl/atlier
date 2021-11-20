@@ -13,6 +13,24 @@ pub enum AttributeValue {
 }
 
 impl AttributeValue {
+
+    pub fn copy_blank(&self) -> Self {
+        match self {
+            AttributeValue::Literal(l) => match l {
+                Value::Float(_) => Value::Float(f32::default()).into(),
+                Value::Int(_) => Value::Int(i32::default()).into(),
+                Value::Bool(_) => Value::Bool(bool::default()).into(),
+                Value::FloatRange(_, min, max) => Value::FloatRange(f32::default(), *min, *max).into(),
+                Value::IntRange(_, min, max) => Value::IntRange(i32::default(), *min, *max).into(),
+                Value::TextBuffer(_) => Value::TextBuffer(String::new()).into(),
+            },
+            AttributeValue::Container(c) => AttributeValue::Container(c.clone()),
+            AttributeValue::Map(m) => AttributeValue::Map(m.clone()),
+            AttributeValue::Empty => AttributeValue::Empty,
+            AttributeValue::Error(msg) => AttributeValue::Error(msg.clone()),
+        }
+    }
+
     pub fn slider(name: String, ui: &imgui::Ui, value: &mut AttributeValue) {
         if let AttributeValue::Literal(v) = value {
             match v {
@@ -277,12 +295,26 @@ impl NodeResource {
             }
         }
     }
+
+    pub fn copy_blank(&self) -> Self {
+        match self {
+            NodeResource::Title(v) => NodeResource::Title(v),
+            NodeResource::Input(n, _) => NodeResource::Input(*n, None),
+            NodeResource::Output(n, o, Some(v), _) => NodeResource::Output(*n, *o, Some(v.copy_blank()), None),
+            NodeResource::Attribute(n, d, Some(v), _) => NodeResource::Attribute(*n, *d, Some(v.copy_blank()), None),
+            NodeResource::OutputWithAttribute(n, d, o, Some(v), _, _) => NodeResource::OutputWithAttribute(*n, *d, *o, Some(v.copy_blank()), None, None),
+            NodeResource::Output(n, o, v, _) => NodeResource::Output(*n, *o, v.clone(), None),
+            NodeResource::Attribute(n, d, v, _) => NodeResource::Attribute(*n, *d, v.clone(), None),
+            NodeResource::OutputWithAttribute(n, d, o, v, _, _) => NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None),
+
+        }
+    }
 }
 
 impl Node for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
         match self {
-            NodeResource::Title(title) => node.add_titlebar(|| ui.text(title)),
+            NodeResource::Title(title) => node.add_titlebar(|| ui.text(format!("{}    ", title))),
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
                 ui.set_next_item_width(130.0);
@@ -333,8 +365,8 @@ impl Node for NodeResource {
         let mut next = vec![];
         for r in resources {
             let next_r = match r {
-                NodeResource::Attribute(name, display, Some(v), None) => {
-                    NodeResource::Attribute(name, display, Some(v), Some(id_gen.next_attribute()))
+                NodeResource::Attribute(name, display, v, None) => {
+                    NodeResource::Attribute(name, display, v, Some(id_gen.next_attribute()))
                 }
                 NodeResource::Output(name, vfn, v, None) => {
                     NodeResource::Output(name, vfn, v, Some(id_gen.next_output_pin()))
@@ -376,6 +408,20 @@ pub enum EditorResource {
     },
 }
 
+impl EditorResource {
+    pub fn copy_blank(&self, new_id: Option<imnodes::NodeId>) -> EditorResource {
+        match self {
+            EditorResource::Node {  resources, .. } => {
+                EditorResource::Node {
+                    id: new_id, 
+                    resources: resources.iter().map(|f| f.copy_blank()).collect()
+                }
+            },
+             _ => panic!("Cannot get blank copies of links")
+        }
+    }
+}
+
 impl NodeEditor for EditorResource {
     type State = NodeResource;
     fn setup(
@@ -392,6 +438,13 @@ impl NodeEditor for EditorResource {
                     resources,
                 } => EditorResource::Node {
                     id: Some(id_gen.next_node()),
+                    resources: NodeResource::setup(id_gen, resources.to_vec()),
+                },
+                EditorResource::Node {
+                    id: Some(existing),
+                    resources,
+                } => EditorResource::Node {
+                    id: Some(*existing),
                     resources: NodeResource::setup(id_gen, resources.to_vec()),
                 },
                 p => p.clone(),
@@ -426,5 +479,8 @@ impl NodeEditor for EditorResource {
             EditorResource::Node { resources, .. } => resources.to_vec(),
             _ => vec![],
         }
+    }
+
+    fn context_menu(&mut self, ui: &imgui::Ui) {
     }
 }

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use atlier::{prelude::{ControlState, GUIUpdate, NodeResource, new_gui_system}, system::{AttributeValue, EditorResource, Expression, NodeApp, Value}};
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
@@ -30,7 +30,10 @@ fn main() {
 
     let app = NodeApp::new("node-app".to_string())
         .module(vec![
-            Expression::new_add_node(),
+            Expression::new_add_node(None),
+            Expression::new_multiply_node(None),
+            Expression::new_divide_node(None),
+            Expression::new_subtract_node(None),
             EditorResource::Node {
             resources: vec![
                 NodeResource::Title("hello"),
@@ -149,12 +152,16 @@ impl Test {
             ),
             NodeResource::OutputWithAttribute(
                 || "output_with_attr",
-                AttributeValue::input,
+                |label: String, ui: &imgui::Ui, value: &mut AttributeValue| {
+                    if let AttributeValue::Literal(Value::Float(f)) = value {
+                        ui.set_next_item_width(130.0); 
+                        imgui::InputFloat::new(ui, label, f).read_only(true).build();
+                    }
+
+                },
                 |state| {
-                    if let (
-                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))), 
-                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..)))) = (state.get("lhs"), state.get("rhs")) {
-                        return Some(Value::Float(lhs+rhs).into())
+                    if let Some(v) = state.get("output") {
+                        return Some(v.clone())
                     }
                     None
                 },
