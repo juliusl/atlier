@@ -10,7 +10,7 @@ pub use resource::EditorResource;
 pub use resource::NodeResource;
 
 pub mod expression;
-pub use expression::ExpressionVisitor;
+pub use expression::*;
 
 mod visitor;
 
@@ -507,8 +507,12 @@ impl<'a> App<'a> for NodeApp {
     fn show(&mut self, ui: &imgui::Ui) {
         let window = self.get_window();
 
+        ui.show_demo_window(&mut true);
+
         window.build(&ui, || {
             self.modules.iter_mut().for_each(|(e, m)| {
+                
+                let node_padding = imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
                 let resources =
                     <NodeModule as NodeEditor>::setup(&mut m.id_gen, &e, m.resources.to_vec());
                 m.resources = resources;
@@ -526,6 +530,7 @@ impl<'a> App<'a> for NodeApp {
                 }
 
                 detatch.pop();
+                node_padding.pop();
             });
         });
     }

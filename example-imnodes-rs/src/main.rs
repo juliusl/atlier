@@ -4,6 +4,7 @@ use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
 fn main() {
+
     let attr = NodeResource::Attribute(
         || "test",
         AttributeValue::input,
@@ -126,6 +127,16 @@ impl Test {
         settings.insert("name".to_string(), Value::TextBuffer(String::default()).into());
         settings.insert("fields".to_string(), Value::Int(0).into());
         settings.insert("render".to_string(), Value::Bool(false).into());
+
+
+        let mut settings2: BTreeMap<String, AttributeValue> = BTreeMap::new();
+
+        settings2.insert("nested_name".to_string(), Value::TextBuffer(String::default()).into());
+        settings2.insert("nested_fields".to_string(), Value::Int(0).into());
+        settings2.insert("nested_render".to_string(), Value::Bool(false).into());
+
+        settings.insert("nested".to_string(), AttributeValue::Map(settings2));
+
 
         vec![
             NodeResource::Title("test node"),

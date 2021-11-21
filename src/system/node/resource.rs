@@ -1,7 +1,10 @@
 use super::{Node, NodeEditor};
 use crate::system::Value;
 use imnodes::{InputPinId, OutputPinId};
-use std::{collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
+use std::{
+    collections::{BTreeMap, HashMap},
+    hash::{Hash, Hasher},
+};
 
 #[derive(Debug, Clone, Hash)]
 pub enum AttributeValue {
@@ -19,9 +22,9 @@ impl Into<f32> for AttributeValue {
                 Value::Int(i) => i as f32,
                 Value::FloatRange(f, _, _) => f,
                 Value::IntRange(i, _, _) => i as f32,
-                _ => 0.00
+                _ => 0.00,
             },
-            _ => 0.00
+            _ => 0.00,
         }
     }
 }
@@ -34,13 +37,12 @@ impl Into<i32> for AttributeValue {
                 Value::Int(i) => i,
                 Value::FloatRange(f, _, _) => f as i32,
                 Value::IntRange(i, _, _) => i,
-                _ => 0
+                _ => 0,
             },
-            _ => 0
+            _ => 0,
         }
     }
 }
-
 
 impl AttributeValue {
     pub fn copy_blank(&self) -> Self {
@@ -49,7 +51,9 @@ impl AttributeValue {
                 Value::Float(_) => Value::Float(f32::default()).into(),
                 Value::Int(_) => Value::Int(i32::default()).into(),
                 Value::Bool(_) => Value::Bool(bool::default()).into(),
-                Value::FloatRange(_, min, max) => Value::FloatRange(f32::default(), *min, *max).into(),
+                Value::FloatRange(_, min, max) => {
+                    Value::FloatRange(f32::default(), *min, *max).into()
+                }
                 Value::IntRange(_, min, max) => Value::IntRange(i32::default(), *min, *max).into(),
                 Value::TextBuffer(_) => Value::TextBuffer(String::new()).into(),
             },
@@ -61,39 +65,40 @@ impl AttributeValue {
 
     pub fn input(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
         match value {
-            AttributeValue::Literal(v) => {
-                match v {
-                    Value::TextBuffer(text) => {
-                        ui.set_next_item_width(130.0);
-                        imgui::InputText::new(ui, label, text).build();
-                    }
-                    Value::Int(int) => {
-                        ui.set_next_item_width(130.0);
-                        imgui::InputInt::new(ui, label, int).build();
-                    }
-                    Value::Float(float) => {
-                        ui.set_next_item_width(130.0);
-                        imgui::InputFloat::new(ui, label, float).build();
-                    }
-                    Value::Bool(bool) => {
-                        ui.set_next_item_width(130.0);
-                        ui.checkbox(label, bool);
-                    }
-                    Value::FloatRange(v, min, max) => {
-                        ui.set_next_item_width(130.0);
-                        imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                    }
-                    Value::IntRange(v, min, max) => {
-                        ui.set_next_item_width(130.0);
-                        imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                    }
+            AttributeValue::Literal(v) => match v {
+                Value::TextBuffer(text) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputText::new(ui, label, text).build();
                 }
-            }
+                Value::Int(int) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputInt::new(ui, label, int).build();
+                }
+                Value::Float(float) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::InputFloat::new(ui, label, float).build();
+                }
+                Value::Bool(bool) => {
+                    ui.set_next_item_width(130.0);
+                    ui.checkbox(label, bool);
+                }
+                Value::FloatRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
+                Value::IntRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
+            },
             AttributeValue::Map(map) => {
+                ui.spacing(); 
                 for (name, value) in map {
-                    AttributeValue::input(name.to_string(), ui, value);
+                    let nested = format!("{}/{}", label, name);
+                    ui.spacing();
+                    AttributeValue::input(nested.to_string(), ui, value);
                 }
-            }
+            },
             _ => (),
         }
     }
@@ -165,21 +170,21 @@ impl Hash for NodeResource {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             NodeResource::Title(s) => s.hash(state),
-            NodeResource::Input(_, Some(input_id)) => input_id.hash( state),
+            NodeResource::Input(_, Some(input_id)) => input_id.hash(state),
             NodeResource::Output(_, _, Some(v), Some(output_id)) => {
                 output_id.hash(state);
                 v.hash(state);
-            },
+            }
             NodeResource::Attribute(_, _, Some(v), Some(id)) => {
                 v.hash(state);
                 id.hash(state);
-            },
+            }
             NodeResource::OutputWithAttribute(_, _, _, Some(v), Some(output_id), Some(attr_id)) => {
                 v.hash(state);
                 output_id.hash(state);
                 attr_id.hash(state)
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 }
@@ -227,22 +232,21 @@ impl NodeResource {
                 None => None,
             } {
                 Some(output_val) => {
-                    // Then update the state of the input node and add that value to it's state at the entry of the connected input 
+                    // Then update the state of the input node and add that value to it's state at the entry of the connected input
                     match inputid_to_nodeid_index.get(input_pin_id) {
-                        Some(input_node_id) => {
-                            match &nodeid_to_dictionary.get(input_node_id) {
-                                Some(AttributeValue::Map(input_values)) => {
-                                    let mut updated_input_values = input_values.clone();
-                                    updated_input_values.insert(input_name.to_string(), output_val.clone());
+                        Some(input_node_id) => match &nodeid_to_dictionary.get(input_node_id) {
+                            Some(AttributeValue::Map(input_values)) => {
+                                let mut updated_input_values = input_values.clone();
+                                updated_input_values
+                                    .insert(input_name.to_string(), output_val.clone());
 
-                                    nodeid_to_dictionary.insert(
-                                        *input_node_id,
-                                        AttributeValue::Map(updated_input_values),
-                                    );
-                                }
-                                _ => (),
+                                nodeid_to_dictionary.insert(
+                                    *input_node_id,
+                                    AttributeValue::Map(updated_input_values),
+                                );
                             }
-                        }
+                            _ => (),
+                        },
                         _ => (),
                     }
                 }
@@ -365,13 +369,20 @@ impl NodeResource {
         match self {
             NodeResource::Title(v) => NodeResource::Title(v),
             NodeResource::Input(n, _) => NodeResource::Input(*n, None),
-            NodeResource::Output(n, o, Some(v), _) => NodeResource::Output(*n, *o, Some(v.copy_blank()), None),
-            NodeResource::Attribute(n, d, Some(v), _) => NodeResource::Attribute(*n, *d, Some(v.copy_blank()), None),
-            NodeResource::OutputWithAttribute(n, d, o, Some(v), _, _) => NodeResource::OutputWithAttribute(*n, *d, *o, Some(v.copy_blank()), None, None),
+            NodeResource::Output(n, o, Some(v), _) => {
+                NodeResource::Output(*n, *o, Some(v.copy_blank()), None)
+            }
+            NodeResource::Attribute(n, d, Some(v), _) => {
+                NodeResource::Attribute(*n, *d, Some(v.copy_blank()), None)
+            }
+            NodeResource::OutputWithAttribute(n, d, o, Some(v), _, _) => {
+                NodeResource::OutputWithAttribute(*n, *d, *o, Some(v.copy_blank()), None, None)
+            }
             NodeResource::Output(n, o, v, _) => NodeResource::Output(*n, *o, v.clone(), None),
             NodeResource::Attribute(n, d, v, _) => NodeResource::Attribute(*n, *d, v.clone(), None),
-            NodeResource::OutputWithAttribute(n, d, o, v, _, _) => NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None),
-
+            NodeResource::OutputWithAttribute(n, d, o, v, _, _) => {
+                NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None)
+            }
         }
     }
 }
@@ -476,13 +487,11 @@ pub enum EditorResource {
 impl EditorResource {
     pub fn copy_blank(&self, new_id: Option<imnodes::NodeId>) -> EditorResource {
         match self {
-            EditorResource::Node {  resources, .. } => {
-                EditorResource::Node {
-                    id: new_id, 
-                    resources: resources.iter().map(|f| f.copy_blank()).collect()
-                }
+            EditorResource::Node { resources, .. } => EditorResource::Node {
+                id: new_id,
+                resources: resources.iter().map(|f| f.copy_blank()).collect(),
             },
-             _ => panic!("Cannot get blank copies of links")
+            _ => panic!("Cannot get blank copies of links"),
         }
     }
 }
@@ -531,8 +540,7 @@ impl NodeEditor for EditorResource {
 
                 while let Some(next) = iter.next() {
                     let node_scope = &mut scope;
-
-                    next.show(node_scope, ui)
+                    next.show(node_scope, ui);
                 }
             }),
             _ => {}
@@ -546,6 +554,5 @@ impl NodeEditor for EditorResource {
         }
     }
 
-    fn context_menu(&mut self, _: &imgui::Ui) {
-    }
+    fn context_menu(&mut self, _: &imgui::Ui) {}
 }

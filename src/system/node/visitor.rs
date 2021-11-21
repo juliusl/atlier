@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::{AttributeValue, EditorResource};
+use super::{AttributeValue};
 
 pub trait  NodeVisitor {
 

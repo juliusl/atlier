@@ -1,6 +1,7 @@
 mod window;
 mod gui;
 mod node;
+mod font;
 
 use window::WindowContext;
 use window::Hardware;
@@ -19,6 +20,9 @@ pub use node::NodeResource;
 pub use node::EditorResource;
 pub use node::AttributeValue;
 pub use node::expression;
+
+pub use font::cascadia_code;
+pub use font::monaco;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
@@ -95,7 +99,35 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
             setup_imgui.set_ini_filename(None);
         
             setup_imgui.io_mut().font_global_scale = (1.0 / hidpi_scale_factor) as f32;
-        
+
+            if let Some(cascadia_code) = cascadia_code() {
+                setup_imgui.fonts().add_font(&[FontSource::TtfData {
+                    data: &cascadia_code,
+                    config: Some(imgui::FontConfig {
+                        name: Some("Cascadia Code".to_string()),
+                        oversample_h: 1,
+                        pixel_snap_h: true,
+                        size_pixels: font_size,
+                        ..Default::default()
+                    }),
+                    size_pixels: font_size,
+                }]);
+            }
+
+            if let Some(monaco) = monaco() {
+                setup_imgui.fonts().add_font(&[FontSource::TtfData {
+                    data: &monaco,
+                    config: Some(imgui::FontConfig {
+                        name: Some("Monaco".to_string()),
+                        oversample_h: 1,
+                        pixel_snap_h: true,
+                        size_pixels: font_size,
+                        ..Default::default()
+                    }),
+                    size_pixels: font_size,
+                }]);
+            }
+
             setup_imgui.fonts().add_font(&[FontSource::DefaultFontData {
                 config: Some(imgui::FontConfig {
                     oversample_h: 1,
