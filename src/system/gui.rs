@@ -56,7 +56,6 @@ where
     type SystemData = GUISystemData<'a>;
 
     fn run(&mut self, data: Self::SystemData) {
-
         let mut control_state = data.control_state;
 
         for GUIUpdate { event } in data.update.join() {

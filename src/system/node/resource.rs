@@ -32,7 +32,6 @@ impl Hash for AttributeValue {
 }
 
 impl AttributeValue {
-
     pub fn copy_blank(&self) -> Self {
         match self {
             AttributeValue::Literal(l) => match l {
@@ -85,9 +84,53 @@ impl AttributeValue {
                     ui.set_next_item_width(130.0);
                     ui.checkbox(label, bool);
                 }
+                Value::FloatRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
+                Value::IntRange(v, min, max) => {
+                    ui.set_next_item_width(130.0);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
                 _ => {}
             }
         } else if let AttributeValue::Map(map) = value {
+            let selected = map.iter().find(|p| {
+                if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
+                    *selected
+                } else {
+                    false
+                }
+            });
+
+            let preview_value = if let Some(s) = selected { s.0 } else { "" };
+
+            ui.set_next_item_width(130.0);
+            if let Some(t) = imgui::ComboBox::new(label)
+                .preview_value(preview_value)
+                .begin(ui)
+            {
+                for (attr_name, attr) in map {
+                    if let AttributeValue::Literal(Value::Bool(selected)) = attr {
+                        if imgui::Selectable::new(attr_name)
+                            .selected(*selected)
+                            .build(ui)
+                        {
+                            ui.set_item_default_focus();
+                            ui.text(attr_name);
+                            *selected = true;
+                        } else {
+                            *selected = false;
+                        }
+                    }
+                }
+                t.end();
+            }
+        }
+    }
+
+    pub fn select(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
+        if let AttributeValue::Map(map) = value {
             let selected = map.iter().find(|p| {
                 if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
                     *selected
