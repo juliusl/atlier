@@ -7,6 +7,7 @@ use window::Hardware;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use imgui::FontSource;
+use std::hash::Hash;
 
 pub use gui::GUI;
 pub use gui::GUIUpdate;
@@ -16,8 +17,8 @@ pub use node::NodeModule;
 pub use node::NodeApp;
 pub use node::NodeResource;
 pub use node::EditorResource;
-pub use node::Expression;
 pub use node::AttributeValue;
+pub use node::expression;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
@@ -32,6 +33,27 @@ pub enum Value {
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     TextBuffer(String),
+}
+
+impl Hash for Value {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Value::Float(f) => f.to_bits().hash(state),
+            Value::Int(i) => i.hash(state),
+            Value::Bool(b) => b.hash(state),
+            Value::FloatRange(f, fm, fmx) => { 
+                f.to_bits().hash(state);
+                fm.to_bits().hash(state);
+                fmx.to_bits().hash(state);
+            }
+            Value::IntRange(i, im, imx) => {
+                i.hash(state);
+                im.hash(state);
+                imx.hash(state);
+            },
+            Value::TextBuffer(txt) => txt.hash(state),
+        };
+    }
 }
 
 impl Into<AttributeValue> for Value {

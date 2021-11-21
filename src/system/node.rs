@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use imnodes::{editor, CoordinateSystem};
 use imnodes::{EditorContext, IdentifierGenerator};
@@ -8,8 +9,10 @@ pub use resource::AttributeValue;
 pub use resource::EditorResource;
 pub use resource::NodeResource;
 
-mod expression;
-pub use expression::Expression;
+pub mod expression;
+pub use expression::ExpressionVisitor;
+
+mod visitor;
 
 use super::App;
 
@@ -44,13 +47,14 @@ pub trait Node {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui);
 }
 
+
 // NodeModule encapsulates a single editor and it's resources
 // it is an node event handler and will detect new connections
 pub struct NodeModule {
     resources: Vec<EditorResource>,
     id_gen: IdentifierGenerator,
     debug: (bool, Option<(imnodes::NodeId, imnodes::AttributeId)>),
-    state: Option<HashMap<imnodes::NodeId, AttributeValue>>,
+    state: (u64, Option<HashMap<imnodes::NodeId, AttributeValue>>),
 }
 
 pub fn begin_context_menu<'a>(
@@ -131,10 +135,12 @@ impl<'a> NodeEditor for NodeModule {
                                     if let Some(node_token) =
                                         imgui::TreeNode::new(tree_label).push(ui)
                                     {
-                                        if let Some(state_index) = &self.state {
+                                        if let (code, Some(state_index)) = &self.state {
                                             if let Some(v) = state_index.get(i) {
+                                                let tree_label = format!("state_index ({})", code);
+
                                                 if let Some(node_id_token) =
-                                                    imgui::TreeNode::new("state_index").push(ui)
+                                                    imgui::TreeNode::new(tree_label).push(ui)
                                                 {
                                                     if let AttributeValue::Map(map) = v {
                                                         for (k, v) in map {
@@ -222,7 +228,7 @@ impl<'a> NodeEditor for NodeModule {
                     let update: Vec<NodeResource> = self_res
                         .iter()
                         .map(|n| {
-                            if let Some(state) = &self.state {
+                            if let Some(state) = &self.state.1 {
                                 if let Some(AttributeValue::Map(state)) = state.get(nodeid) {
                                     match n {
                                         NodeResource::Output(v, func, _, i) => {
@@ -276,8 +282,17 @@ impl<'a> NodeEditor for NodeModule {
 
         self.resources = next_resources.collect();
 
-        let state_index = NodeResource::index_editor_state(self.resources.to_vec());
-        self.state = Some(state_index);
+        let mut hasher = std::collections::hash_map::DefaultHasher::default();
+        self.resources.hash(&mut hasher);
+        let hash_code = hasher.finish();
+
+        if let (_, None) = self.state {
+            let state_index = NodeResource::index_editor_state(self.resources.to_vec());
+            self.state = (hash_code, Some(state_index));
+        } else if self.state.0 != hash_code { 
+            let state_index = NodeResource::index_editor_state(self.resources.to_vec());
+            self.state = (hash_code, Some(state_index));
+        } 
     }
 
     fn get_state(&self) -> Vec<EditorResource> {
@@ -472,7 +487,7 @@ impl NodeApp {
                 resources: resources,
                 id_gen: id_gen,
                 debug: (enable_debug, None),
-                state: None,
+                state: (0, None),
             },
         ));
 

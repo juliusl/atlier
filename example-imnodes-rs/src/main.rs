@@ -1,12 +1,12 @@
 use std::collections::BTreeMap;
-use atlier::{prelude::{ControlState, GUIUpdate, NodeResource, new_gui_system}, system::{AttributeValue, EditorResource, Expression, NodeApp, Value}};
+use atlier::{prelude::{ControlState, GUIUpdate, NodeResource, new_gui_system}, system::{AttributeValue, EditorResource, NodeApp, Value, expression}};
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
 fn main() {
     let attr = NodeResource::Attribute(
         || "test",
-        AttributeValue::slider,
+        AttributeValue::input,
         Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
         None,
     );
@@ -30,10 +30,14 @@ fn main() {
 
     let app = NodeApp::new("node-app".to_string())
         .module(vec![
-            Expression::new_add_node(None),
-            Expression::new_multiply_node(None),
-            Expression::new_divide_node(None),
-            Expression::new_subtract_node(None),
+            expression::new_add_node(None),
+            expression::new_multiply_node(None),
+            expression::new_divide_node(None),
+            expression::new_subtract_node(None),
+            expression::new_add_int_node(None),
+            //expression::new_modulo_int_node(None),
+            expression::new_multiply_int_node(None),
+            expression::new_subtract_int_node(None),
             EditorResource::Node {
             resources: vec![
                 NodeResource::Title("hello"),
@@ -117,24 +121,36 @@ impl Test {
         map.insert("int32".to_string(), Value::Bool(false).into());
         map.insert("float32".to_string(), Value::Bool(false).into());
 
+        let mut settings: BTreeMap<String, AttributeValue> = BTreeMap::new();
+
+        settings.insert("name".to_string(), Value::TextBuffer(String::default()).into());
+        settings.insert("fields".to_string(), Value::Int(0).into());
+        settings.insert("render".to_string(), Value::Bool(false).into());
+
         vec![
             NodeResource::Title("test node"),
             NodeResource::Attribute(
                 || "lhs",
-                AttributeValue::slider,
+                AttributeValue::input,
                 Some(self.lhs.to_owned()),
                 None 
             ),
             NodeResource::Attribute(
                 || "rhs",
-                AttributeValue::slider,
+                AttributeValue::input,
                 Some(self.rhs.to_owned()),
                 None
             ),
             NodeResource::Attribute(
                 ||"types",
-                AttributeValue::input,
+                AttributeValue::select,
                 Some(AttributeValue::Map(map)),
+                None,
+            ),
+            NodeResource::Attribute(
+                ||"settings",
+                AttributeValue::input,
+                Some(AttributeValue::Map(settings)),
                 None,
             ),
             NodeResource::Attribute(

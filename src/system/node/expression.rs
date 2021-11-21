@@ -1,73 +1,52 @@
-use super::{AttributeValue, NodeResource};
-use crate::system::{EditorResource, Value};
+use super::{AttributeValue, NodeResource, visitor::NodeVisitor};
+use crate::{system::{EditorResource, Value}};
 use std::collections::BTreeMap;
 
 #[derive(Clone)]
-pub struct Expression {
-    lhs: AttributeValue,
-    rhs: AttributeValue,
+pub enum ExpressionVisitor
+{
+    Float(fn(f32, f32) -> f32),
+    Int(fn(i32, i32) -> i32),
 }
 
-pub enum Visitor
-{
-    ExpressionFloat2(String, String, fn(f32, f32) -> f32),
-    ExpressionInt2(String, String, fn(i32, i32) -> i32),
+impl From<fn(i32, i32) -> i32> for ExpressionVisitor {
+    fn from(f: fn(i32, i32) -> i32) -> Self {
+        ExpressionVisitor::Int(f)
+    }
 }
 
-impl Visitor
-{
-    pub fn evaluate(&self, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue> {
-        match self.clone() {
-            Visitor::ExpressionFloat2(lhs, rhs, expr) => {
-                let lhs = match state.get(lhs) {
-                    Some(v) => match v {
-                        crate::system::AttributeValue::Literal(l) => match l {
-                            crate::system::Value::Float(f) => *f,
-                            crate::system::Value::Int(i) => *i as f32,
-                            _ => 0.0,
-                        },
-                        _ => 0.0,
-                    },
-                    None => 0.00,
+impl From<fn(f32, f32) -> f32> for ExpressionVisitor {
+    fn from(f: fn(f32, f32) -> f32) -> Self {
+        ExpressionVisitor::Float(f)
+    }
+}
+
+impl NodeVisitor for ExpressionVisitor {
+    fn evaluate(&self, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue> {
+        match self {
+            ExpressionVisitor::Float(expr) => {
+                let rhs: f32 = match state.get("rhs") {
+                    Some(rhs) => rhs.clone().into(),
+                    _ => 0.0,
+                };
+
+                let lhs: f32 = match state.get("lhs") {
+                    Some(lhs) => lhs.clone().into(),
+                    _ => 0.0,
                 };
         
-                let rhs = match state.get(rhs) {
-                    Some(v) => match v {
-                        crate::system::AttributeValue::Literal(l) => match l {
-                            crate::system::Value::Float(f) => *f,
-                            crate::system::Value::Int(i) => *i as f32,
-                            _ => 0.0,
-                        },
-                        _ => 0.0,
-                    },
-                    None => 0.00,
-                };
         
                 Some(AttributeValue::Literal(Value::Float(expr(lhs, rhs))))
             },
-            Visitor::ExpressionInt2(lhs, rhs, expr) => {
-                let lhs = match state.get(lhs) {
-                    Some(v) => match v {
-                        crate::system::AttributeValue::Literal(l) => match l {
-                            crate::system::Value::Float(f) => *f as i32,
-                            crate::system::Value::Int(i) => *i,
-                            _ => 0,
-                        },
-                        _ => 0,
-                    },
-                    None => 0,
+            ExpressionVisitor::Int(expr) => {
+                let rhs: i32 = match state.get("rhs") {
+                    Some(rhs) => rhs.clone().into(),
+                    _ => 0,
                 };
-        
-                let rhs = match state.get(rhs) {
-                    Some(v) => match v {
-                        crate::system::AttributeValue::Literal(l) => match l {
-                            crate::system::Value::Float(f) => *f as i32,
-                            crate::system::Value::Int(i) => *i,
-                            _ => 0,
-                        },
-                        _ => 0,
-                    },
-                    None => 0,
+
+                let lhs: i32 = match state.get("lhs") {
+                    Some(lhs) => lhs.clone().into(),
+                    _ => 0,
                 };
         
                 Some(AttributeValue::Literal(Value::Int(expr(lhs, rhs))))
@@ -76,151 +55,122 @@ impl Visitor
     }
 }
 
-impl Expression {
-    pub fn new_add_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_add_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
                 NodeResource::Title("Add"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "sum", |state| {
-                    let visitor = Visitor::ExpressionFloat2("lhs".to_string(), "rhs".to_string(), Expression::sum);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Float(|l: f32, r: f32| l + r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
 
-    pub fn new_multiply_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Multiply"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "product", |state| {
-                    let visitor = Visitor::ExpressionFloat2("lhs".to_string(), "rhs".to_string(), Expression::product);
-                    visitor.evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
-    }
-
-    pub fn new_divide_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_divide_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
                 NodeResource::Title("Divide"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "quotient", |state| {
-                    let visitor = Visitor::ExpressionFloat2("lhs".to_string(), "rhs".to_string(), Expression::quotient);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Float(|l,r| l / r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
 
-    pub fn new_subtract_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_multiply_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
+        EditorResource::Node {
+            resources: vec![
+                NodeResource::Title("Multiply"),
+                NodeResource::Input(|| "lhs", None),
+                NodeResource::Input(|| "rhs", None),
+                NodeResource::Output(|| "product", |state| {
+                    ExpressionVisitor::Float(|l,r| l * r).evaluate(state)
+                }, None, None),
+            ],
+            id: nodeid,
+        }
+    }
+
+    pub fn new_subtract_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
                 NodeResource::Title("Subtract"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "difference", |state| {
-                    let visitor = Visitor::ExpressionFloat2("lhs".to_string(), "rhs".to_string(), Expression::difference);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Float(|l,r| l - r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
 
-    pub fn new_add_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_add_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
-                NodeResource::Title("Add"),
+                NodeResource::Title("integers::Add"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "sum", |state| {
-                    let visitor = Visitor::ExpressionInt2("lhs".to_string(), "rhs".to_string(), Expression::sum_int);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Int(|l,r| l + r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
 
-    pub fn new_multiply_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_modulo_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
-                NodeResource::Title("Multiply"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "product", |state| {
-                    let visitor = Visitor::ExpressionInt2("lhs".to_string(), "rhs".to_string(), Expression::product_int);
-                    visitor.evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
-    }
-
-    pub fn new_divide_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Divide"),
+                NodeResource::Title("integers::Divide"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "quotient", |state| {
-                    let visitor = Visitor::ExpressionInt2("lhs".to_string(), "rhs".to_string(), Expression::quotient_int);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Int(|l,r| l % r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
 
-    pub fn new_subtract_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+    pub fn new_multiply_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
         EditorResource::Node {
             resources: vec![
-                NodeResource::Title("Subtract"),
+                NodeResource::Title("integers::Multiply"),
+                NodeResource::Input(|| "lhs", None),
+                NodeResource::Input(|| "rhs", None),
+                NodeResource::Output(|| "product", |state| {
+                    ExpressionVisitor::Int(|l,r| l * r).evaluate(state)
+                }, None, None),
+            ],
+            id: nodeid,
+        }
+    }
+
+    pub fn new_subtract_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
+    {
+        EditorResource::Node {
+            resources: vec![
+                NodeResource::Title("integers::Subtract"),
                 NodeResource::Input(|| "lhs", None),
                 NodeResource::Input(|| "rhs", None),
                 NodeResource::Output(|| "difference", |state| {
-                    let visitor = Visitor::ExpressionInt2("lhs".to_string(), "rhs".to_string(), Expression::difference_int);
-                    visitor.evaluate(state)
+                    ExpressionVisitor::Int(|l,r| l - r).evaluate(state)
                 }, None, None),
             ],
             id: nodeid,
         }
     }
-    
-    fn sum(lhs: f32, rhs: f32) -> f32 {
-        lhs + rhs
-    }
-    fn product(lhs: f32, rhs: f32) -> f32 {
-        lhs * rhs
-    }
-    fn quotient(lhs: f32, rhs: f32) -> f32 { 
-        lhs / rhs
-    }
-    fn difference(lhs: f32, rhs: f32) -> f32 { 
-        lhs - rhs
-    }
-
-    fn sum_int(lhs: i32, rhs: i32) -> i32 {
-        lhs + rhs
-    }
-    fn product_int(lhs: i32, rhs: i32) -> i32 {
-        lhs * rhs
-    }
-    fn quotient_int(lhs: i32, rhs: i32) -> i32 { 
-        lhs / rhs
-    }
-    fn difference_int(lhs: i32, rhs: i32) -> i32 { 
-        lhs - rhs
-    }
-}
-

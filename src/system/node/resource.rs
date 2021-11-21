@@ -1,35 +1,46 @@
 use super::{Node, NodeEditor};
 use crate::system::Value;
-use imnodes::{EditorContext, InputPinId, OutputPinId};
-use std::{collections::{BTreeMap, HashMap}, hash::{self, Hash, Hasher}};
+use imnodes::{InputPinId, OutputPinId};
+use std::{collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum AttributeValue {
     Literal(crate::system::Value),
-    Container(Vec<AttributeValue>),
     Map(BTreeMap<String, AttributeValue>),
     Empty,
     Error(String),
 }
 
-impl Hash for AttributeValue {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+impl Into<f32> for AttributeValue {
+    fn into(self) -> f32 {
         match self {
-                AttributeValue::Literal(l) => match l {
-                    Value::Float(v) => format!("{}", v).hash(state),
-                    Value::Int(i) => i.hash(state),
-                    Value::Bool(b) => b.hash(state),
-                    Value::FloatRange(f, _, _) => format!("{}", f).hash(state),
-                    Value::IntRange(i, _, _) => i.hash(state),
-                    Value::TextBuffer(t) => t.hash(state),
-                },
-                AttributeValue::Container(f) => f.len().hash(state),
-                AttributeValue::Map(m) => m.len().hash(state),
-                AttributeValue::Empty => 1.hash(state),
-                AttributeValue::Error(e) => e.hash(state),
+            AttributeValue::Literal(l) => match l {
+                Value::Float(f) => f,
+                Value::Int(i) => i as f32,
+                Value::FloatRange(f, _, _) => f,
+                Value::IntRange(i, _, _) => i as f32,
+                _ => 0.00
+            },
+            _ => 0.00
         }
     }
 }
+
+impl Into<i32> for AttributeValue {
+    fn into(self) -> i32 {
+        match self {
+            AttributeValue::Literal(l) => match l {
+                Value::Float(f) => f as i32,
+                Value::Int(i) => i,
+                Value::FloatRange(f, _, _) => f as i32,
+                Value::IntRange(i, _, _) => i,
+                _ => 0
+            },
+            _ => 0
+        }
+    }
+}
+
 
 impl AttributeValue {
     pub fn copy_blank(&self) -> Self {
@@ -42,90 +53,48 @@ impl AttributeValue {
                 Value::IntRange(_, min, max) => Value::IntRange(i32::default(), *min, *max).into(),
                 Value::TextBuffer(_) => Value::TextBuffer(String::new()).into(),
             },
-            AttributeValue::Container(c) => AttributeValue::Container(c.clone()),
             AttributeValue::Map(m) => AttributeValue::Map(m.clone()),
-            AttributeValue::Empty => AttributeValue::Empty,
             AttributeValue::Error(msg) => AttributeValue::Error(msg.clone()),
-        }
-    }
-
-    pub fn slider(name: String, ui: &imgui::Ui, value: &mut AttributeValue) {
-        if let AttributeValue::Literal(v) = value {
-            match v {
-                Value::FloatRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
-                }
-                Value::IntRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::Slider::new(name, min.clone(), max.clone()).build(ui, v);
-                }
-                _ => {}
-            }
+            AttributeValue::Empty => AttributeValue::Empty,
         }
     }
 
     pub fn input(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
-        if let AttributeValue::Literal(v) = value {
-            match v {
-                Value::TextBuffer(text) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::InputText::new(ui, label, text).build();
-                }
-                Value::Int(int) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::InputInt::new(ui, label, int).build();
-                }
-                Value::Float(float) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::InputFloat::new(ui, label, float).build();
-                }
-                Value::Bool(bool) => {
-                    ui.set_next_item_width(130.0);
-                    ui.checkbox(label, bool);
-                }
-                Value::FloatRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-                Value::IntRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-                _ => {}
-            }
-        } else if let AttributeValue::Map(map) = value {
-            let selected = map.iter().find(|p| {
-                if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
-                    *selected
-                } else {
-                    false
-                }
-            });
-
-            let preview_value = if let Some(s) = selected { s.0 } else { "" };
-
-            ui.set_next_item_width(130.0);
-            if let Some(t) = imgui::ComboBox::new(label)
-                .preview_value(preview_value)
-                .begin(ui)
-            {
-                for (attr_name, attr) in map {
-                    if let AttributeValue::Literal(Value::Bool(selected)) = attr {
-                        if imgui::Selectable::new(attr_name)
-                            .selected(*selected)
-                            .build(ui)
-                        {
-                            ui.set_item_default_focus();
-                            ui.text(attr_name);
-                            *selected = true;
-                        } else {
-                            *selected = false;
-                        }
+        match value {
+            AttributeValue::Literal(v) => {
+                match v {
+                    Value::TextBuffer(text) => {
+                        ui.set_next_item_width(130.0);
+                        imgui::InputText::new(ui, label, text).build();
+                    }
+                    Value::Int(int) => {
+                        ui.set_next_item_width(130.0);
+                        imgui::InputInt::new(ui, label, int).build();
+                    }
+                    Value::Float(float) => {
+                        ui.set_next_item_width(130.0);
+                        imgui::InputFloat::new(ui, label, float).build();
+                    }
+                    Value::Bool(bool) => {
+                        ui.set_next_item_width(130.0);
+                        ui.checkbox(label, bool);
+                    }
+                    Value::FloatRange(v, min, max) => {
+                        ui.set_next_item_width(130.0);
+                        imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                    }
+                    Value::IntRange(v, min, max) => {
+                        ui.set_next_item_width(130.0);
+                        imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
                     }
                 }
-                t.end();
             }
+            AttributeValue::Map(map) => {
+                for (name, value) in map {
+                    AttributeValue::input(name.to_string(), ui, value);
+                }
+            }
+            _ => (),
         }
     }
 
@@ -190,6 +159,29 @@ pub enum NodeResource {
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
     ),
+}
+
+impl Hash for NodeResource {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            NodeResource::Title(s) => s.hash(state),
+            NodeResource::Input(_, Some(input_id)) => input_id.hash( state),
+            NodeResource::Output(_, _, Some(v), Some(output_id)) => {
+                output_id.hash(state);
+                v.hash(state);
+            },
+            NodeResource::Attribute(_, _, Some(v), Some(id)) => {
+                v.hash(state);
+                id.hash(state);
+            },
+            NodeResource::OutputWithAttribute(_, _, _, Some(v), Some(output_id), Some(attr_id)) => {
+                v.hash(state);
+                output_id.hash(state);
+                attr_id.hash(state)
+            },
+            _ => {},
+        }
+    }
 }
 
 impl NodeResource {
@@ -340,42 +332,7 @@ impl NodeResource {
     pub fn get_hash_code(editor_resource: &EditorResource) -> u64 {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
 
-        match editor_resource {
-            EditorResource::Node { id: Some(id), resources } => {
-                id.hash(&mut hasher);
-                resources.iter().for_each(|f|{
-                    match f {
-                        NodeResource::Title(s) => s.hash(&mut hasher),
-                        NodeResource::Input(_, Some(input_id)) => input_id.hash(&mut hasher),
-                        NodeResource::Output(_, _, Some(v), Some(output_id)) => {
-                            output_id.hash(&mut hasher);
-                            v.hash(&mut hasher);
-                        },
-                        NodeResource::Attribute(_, _, Some(v), Some(id)) => {
-                            v.hash(&mut hasher);
-                            id.hash(&mut hasher);
-                        },
-                        NodeResource::OutputWithAttribute(_, _, _, Some(v), Some(output_id), Some(attr_id)) => {
-                            v.hash(&mut hasher);
-                            output_id.hash(&mut hasher);
-                            attr_id.hash(&mut hasher)
-                        },
-                        _ => {},
-                    }
-                })
-            },
-            EditorResource::Link { id, start, end } => {
-                id.hash(&mut hasher);
-                let (s, out) = start; 
-                s.hash(&mut hasher);
-                out.hash(&mut hasher);
-
-                let (e, in_id) = end;
-                e.hash(&mut hasher);
-                in_id.hash(&mut hasher);
-            },
-            _ => {},
-        };
+        editor_resource.hash(&mut hasher);
 
         hasher.finish()
     }
@@ -503,7 +460,7 @@ impl Node for NodeResource {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub enum EditorResource {
     Node {
         id: Option<imnodes::NodeId>,
@@ -589,6 +546,6 @@ impl NodeEditor for EditorResource {
         }
     }
 
-    fn context_menu(&mut self, ui: &imgui::Ui) {
+    fn context_menu(&mut self, _: &imgui::Ui) {
     }
 }
