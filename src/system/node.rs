@@ -259,6 +259,36 @@ impl<'a> NodeEditor for NodeModule {
                                             );
                                             return next;
                                         }
+                                        NodeResource::Action(
+                                            v,
+                                            a,
+                                            None,
+                                            attr_id,
+                                        ) => {
+                                            NodeResource::Action(
+                                                v.to_owned(),
+                                                a.to_owned(),
+                                                Some(AttributeValue::Map(state.clone())),
+                                                *attr_id)
+                                        }
+                                        NodeResource::Action(
+                                            v,
+                                            a,
+                                            Some(AttributeValue::Map(old)),
+                                            attr_id,
+                                        ) => {
+                                            let mut next = old.to_owned();
+
+                                            for (key, val) in state {
+                                                next.insert(key.clone(), val.clone()); 
+                                            }
+
+                                            NodeResource::Action(
+                                                v.to_owned(),
+                                                a.to_owned(),
+                                                Some(AttributeValue::Map(next)),
+                                                *attr_id)
+                                        }
                                         _ => return n.to_owned(),
                                     }
                                 } else {

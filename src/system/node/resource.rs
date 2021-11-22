@@ -164,6 +164,12 @@ pub enum NodeResource {
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
     ),
+    Action(
+        fn() -> &'static str,
+        fn(name: String, ui: &imgui::Ui, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>, 
+        Option<AttributeValue>,
+        Option<imnodes::AttributeId>,
+    )
 }
 
 impl Hash for NodeResource {
@@ -350,6 +356,7 @@ impl NodeResource {
             NodeResource::Output(s, ..) => s().to_string(),
             NodeResource::Attribute(s, _, _, _) => s().to_string(),
             NodeResource::OutputWithAttribute(s, _, _, _, _, _) => s().to_string(),
+            NodeResource::Action(s, _, _, _) => s().to_string(),
         }
     }
 
@@ -362,6 +369,7 @@ impl NodeResource {
             NodeResource::OutputWithAttribute(_, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?}", v, o, a)
             }
+            NodeResource::Action(s, _, a, i) => format!("{:#?} {:#?} {:#?}", s, a, i),
         }
     }
 
@@ -383,6 +391,7 @@ impl NodeResource {
             NodeResource::OutputWithAttribute(n, d, o, v, _, _) => {
                 NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None)
             }
+            NodeResource::Action(n, a, v, _) => NodeResource::Action(*n, *a, v.clone(), None),
         }
     }
 }
@@ -429,6 +438,21 @@ impl Node for NodeResource {
                     });
                 }
             }
+            NodeResource::Action(
+                name,
+                display_action,
+                Some(AttributeValue::Map(action_state)),
+                Some(attr_id)
+            ) => {
+                // An action maintains it's own state from when this node is initialzied
+                // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
+                node.attribute(*attr_id, || {
+                    let next = display_action(name().to_string(), &ui, &action_state);
+                    if let Some(AttributeValue::Map(next_state)) = next {
+                        *action_state = next_state; 
+                    }
+                })
+            }
             _ => return,
         }
     }
@@ -455,6 +479,9 @@ impl Node for NodeResource {
                         Some(id_gen.next_output_pin()),
                         Some(id_gen.next_attribute()),
                     )
+                }
+                NodeResource::Action(name, action, action_state, None) => {
+                    NodeResource::Action(name, action, action_state, Some(id_gen.next_attribute()))
                 }
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))

@@ -112,6 +112,25 @@ struct Test {
 impl Test {
     fn node(&mut self) -> Vec<NodeResource> { 
 
+        let action = 
+        atlier::prelude::NodeResource::Action(
+            || "internals",
+            |name, ui, state| {
+                ui.spacing();
+                imgui::ListBox::new(name).size([400.0, 300.0]).build(ui, || {
+                    for (l, v) in state {
+                        imgui::TreeNode::new(l).build(ui, ||{
+                        ui.text(format!("{:#?}", v));
+                        });
+                    }
+                });
+
+                Some(AttributeValue::Map(state.to_owned()))            
+            },
+            None,
+            None
+        );
+
         let mut map: BTreeMap<String, AttributeValue> = BTreeMap::new();
 
         map.insert("string".to_string(), Value::Bool(false).into());
@@ -197,7 +216,8 @@ impl Test {
                 None,
                 None,
                 None,
-            )
+            ),
+            action
         ]
     }
 }
