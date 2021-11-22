@@ -27,6 +27,7 @@ pub use node::expression::*;
 
 pub use font::cascadia_code;
 pub use font::monaco;
+pub use font::segoe_ui;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
@@ -123,6 +124,20 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
                     data: &monaco,
                     config: Some(imgui::FontConfig {
                         name: Some("Monaco".to_string()),
+                        oversample_h: 1,
+                        pixel_snap_h: true,
+                        size_pixels: font_size,
+                        ..Default::default()
+                    }),
+                    size_pixels: font_size,
+                }]);
+            }
+
+            if let Some(segoe_ui) = segoe_ui() {
+                setup_imgui.fonts().add_font(&[FontSource::TtfData {
+                    data: &segoe_ui,
+                    config: Some(imgui::FontConfig {
+                        name: Some("Segoe UI".to_string()),
                         oversample_h: 1,
                         pixel_snap_h: true,
                         size_pixels: font_size,

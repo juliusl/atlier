@@ -43,7 +43,7 @@ impl WindowContext {
 
             let surface = unsafe { instance.create_surface(&window) };
             let hidpi_factor = window.scale_factor();
-            let font_size = (13.0 * hidpi_factor) as f32;
+            let font_size = (16.0 * hidpi_factor) as f32;
 
             (window, size, surface, hidpi_factor, font_size)
         };
