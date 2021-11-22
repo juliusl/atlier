@@ -390,7 +390,7 @@ impl NodeResource {
 impl Node for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
         match self {
-            NodeResource::Title(title) => node.add_titlebar(|| ui.text(format!("{}    ", title))),
+            NodeResource::Title(title) => node.add_titlebar(|| ui.text(format!("{}\t\t", title))),
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
                 ui.set_next_item_width(130.0);
@@ -419,16 +419,15 @@ impl Node for NodeResource {
                 Some(output_id),
                 Some(attr_id),
             ) => {
-                let name = name();
-
                 if let Some(attr) = attr {
+                    let name = name();
                     node.attribute(attr_id.clone(), || {
                         display(name.to_string(), &ui, attr);
                     });
+                    node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
+                        ui.text(name);
+                    });
                 }
-                node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
-                    ui.text(name);
-                });
             }
             _ => return,
         }

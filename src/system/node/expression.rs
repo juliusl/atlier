@@ -3,7 +3,8 @@ use crate::{system::{EditorResource, Value}};
 use std::{collections::BTreeMap, marker::PhantomData};
 
 // An ExpressionFunc takes two parameters of the same type and returns a result of the same type
-pub trait ExpressionFunc2<T> { 
+pub trait ExpressionFunc2<T> {
+    // "call by name"
     fn title() -> fn()->&'static str; 
     fn result_name() -> fn()->&'static str; 
     fn func() -> fn(T, T) -> T;
