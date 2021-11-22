@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
-use atlier::{prelude::{ControlState, GUIUpdate, NodeResource, new_gui_system}, system::{AttributeValue, EditorResource, NodeApp, Value, expression}};
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
+use atlier::prelude::*;
 
 fn main() {
 
@@ -31,14 +31,10 @@ fn main() {
 
     let app = NodeApp::new("node-app".to_string())
         .module(vec![
-            expression::new_add_node(None),
-            expression::new_multiply_node(None),
-            expression::new_divide_node(None),
-            expression::new_subtract_node(None),
-            expression::new_add_int_node(None),
-            //expression::new_modulo_int_node(None),
-            expression::new_multiply_int_node(None),
-            expression::new_subtract_int_node(None),
+            FloatExpression::<Add>::resource(None),
+            FloatExpression::<Subtract>::resource(None),
+            FloatExpression::<Divide>::resource(None),
+            FloatExpression::<Multiply>::resource(None),
             EditorResource::Node {
             resources: vec![
                 NodeResource::Title("hello"),

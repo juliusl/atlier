@@ -1,176 +1,141 @@
-use super::{AttributeValue, NodeResource, visitor::NodeVisitor};
+use super::{AttributeValue, NodeResource, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
 use crate::{system::{EditorResource, Value}};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, marker::PhantomData};
 
-#[derive(Clone)]
-pub enum ExpressionVisitor
+// An ExpressionFunc takes two parameters of the same type and returns a result of the same type
+pub trait ExpressionFunc2<T> { 
+    fn title() -> fn()->&'static str; 
+    fn result_name() -> fn()->&'static str; 
+    fn func() -> fn(T, T) -> T;
+}
+
+// FloatExpression is a data structure of float parameters for a receiving ExpresionFunc
+pub struct FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32>
 {
-    Float(fn(f32, f32) -> f32),
-    Int(fn(i32, i32) -> i32),
+    lhs: f32,
+    rhs: f32,
+    _p: PhantomData<V>,
 }
 
-impl From<fn(i32, i32) -> i32> for ExpressionVisitor {
-    fn from(f: fn(i32, i32) -> i32) -> Self {
-        ExpressionVisitor::Int(f)
-    }
-}
-
-impl From<fn(f32, f32) -> f32> for ExpressionVisitor {
-    fn from(f: fn(f32, f32) -> f32) -> Self {
-        ExpressionVisitor::Float(f)
-    }
-}
-
-impl NodeVisitor for ExpressionVisitor {
-    fn evaluate(&self, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue> {
-        match self {
-            ExpressionVisitor::Float(expr) => {
-                let rhs: f32 = match state.get("rhs") {
-                    Some(rhs) => rhs.clone().into(),
-                    _ => 0.0,
-                };
-
-                let lhs: f32 = match state.get("lhs") {
-                    Some(lhs) => lhs.clone().into(),
-                    _ => 0.0,
-                };
-        
-        
-                Some(AttributeValue::Literal(Value::Float(expr(lhs, rhs))))
-            },
-            ExpressionVisitor::Int(expr) => {
-                let rhs: i32 = match state.get("rhs") {
-                    Some(rhs) => rhs.clone().into(),
-                    _ => 0,
-                };
-
-                let lhs: i32 = match state.get("lhs") {
-                    Some(lhs) => lhs.clone().into(),
-                    _ => 0,
-                };
-        
-                Some(AttributeValue::Literal(Value::Int(expr(lhs, rhs))))
-            },
-        }
+impl<V> NodeExterior for FloatExpression<V>  
+where
+    V: ExpressionFunc2<f32> 
+{
+    // Defintion for an editor resource
+    fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+            EditorResource::Node {
+                resources: vec!(
+                    NodeResource::Title(V::title()()),
+                    NodeResource::Input(|| "lhs", None), 
+                    NodeResource::Input(|| "rhs", None), 
+                    NodeResource::Output(V::result_name(), |state| {
+                        // NodeInterior.accept(state) -> NodeVisitor.evaluate -> output 
+                        FloatExpression::<V>::accept(state).evaluate() 
+                    }, 
+                    None,
+                    None)
+                ),
+                id: nodeid
+            }
     }
 }
 
-    pub fn new_add_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Add"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "sum", |state| {
-                    ExpressionVisitor::Float(|l: f32, r: f32| l + r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+impl<'a, V> NodeInterior<'a> for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32> 
+{
+    type Literal = (Option<&'a AttributeValue>, Option<&'a AttributeValue>); 
+    type Visitor = FloatExpression<V>;
+
+    // If this interior is implemented there are two inputs "lhs" and "rhs"
+    fn accept(state: &'a BTreeMap<String, AttributeValue>) -> Self::Visitor {
+         Self::Visitor::from((state.get("lhs"),  state.get("rhs")))
+    }
+}
+
+impl<V> NodeVisitor for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32> 
+{
+    // Evaluate the result of the visitor 
+    fn evaluate(&self) -> Option<AttributeValue> {
+        Some(AttributeValue::Literal(Value::Float(V::func()(self.lhs, self.rhs))))
+    }
+}
+
+// TODO: This is in a good spot to be converted to a derive macro  
+pub struct Add;
+impl ExpressionFunc2<f32> for Add {
+    fn title() -> fn()->&'static str {
+        ||"Add"
     }
 
-    pub fn new_divide_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Divide"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "quotient", |state| {
-                    ExpressionVisitor::Float(|l,r| l / r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn result_name() -> fn()->&'static str {
+        ||"sum"
     }
 
-    pub fn new_multiply_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Multiply"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "product", |state| {
-                    ExpressionVisitor::Float(|l,r| l * r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn func() -> fn(f32, f32) -> f32 {
+        |l, r| l + r 
+    }
+}
+
+pub struct Divide; 
+impl ExpressionFunc2<f32> for Divide {
+    fn title() -> fn()->&'static str {
+        || "Divide"
     }
 
-    pub fn new_subtract_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("Subtract"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "difference", |state| {
-                    ExpressionVisitor::Float(|l,r| l - r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn result_name() -> fn()->&'static str {
+        || "quotient"
     }
 
-    pub fn new_add_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("integers::Add"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "sum", |state| {
-                    ExpressionVisitor::Int(|l,r| l + r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn func() -> fn(f32, f32) -> f32 {
+        |l, r| l/r
+    }
+}
+
+pub struct Subtract;
+impl ExpressionFunc2<f32> for Subtract {
+    fn title() -> fn()->&'static str {
+        || "Subtract"
     }
 
-    pub fn new_modulo_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("integers::Divide"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "quotient", |state| {
-                    ExpressionVisitor::Int(|l,r| l % r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn result_name() -> fn()->&'static str {
+        || "difference"
     }
 
-    pub fn new_multiply_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("integers::Multiply"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "product", |state| {
-                    ExpressionVisitor::Int(|l,r| l * r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn func() -> fn(f32, f32) -> f32 {
+        |l, r| l - r 
+    }
+}
+
+pub struct Multiply;
+impl ExpressionFunc2<f32> for Multiply {
+    fn title() -> fn()->&'static str {
+        || "Multiply"
     }
 
-    pub fn new_subtract_int_node(nodeid: Option<imnodes::NodeId>) -> EditorResource
-    {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title("integers::Subtract"),
-                NodeResource::Input(|| "lhs", None),
-                NodeResource::Input(|| "rhs", None),
-                NodeResource::Output(|| "difference", |state| {
-                    ExpressionVisitor::Int(|l,r| l - r).evaluate(state)
-                }, None, None),
-            ],
-            id: nodeid,
-        }
+    fn result_name() -> fn()->&'static str {
+        || "product"
     }
+
+    fn func() -> fn(f32, f32) -> f32 {
+        |l, r| l*r
+    }
+}
+
+impl<'a, V> From<(Option<&'a AttributeValue>, Option<&'a AttributeValue>)> for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32>
+{
+    fn from(tuple: (Option<&'a AttributeValue>, Option<&'a AttributeValue>)) -> Self {
+       match tuple {
+           (Some(AttributeValue::Literal(Value::Float(lhs))), Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
+           (Some(AttributeValue::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: *lhs, rhs: 0.0, _p: PhantomData::default() },
+           (None, Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: *rhs, _p: PhantomData::default() },
+           _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
+       }
+    }
+}

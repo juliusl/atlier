@@ -20,6 +20,10 @@ pub use node::NodeResource;
 pub use node::EditorResource;
 pub use node::AttributeValue;
 pub use node::expression;
+pub use node::NodeVisitor;
+pub use node::NodeInterior;
+pub use node::NodeExterior;
+pub use node::expression::*;
 
 pub use font::cascadia_code;
 pub use font::monaco;
