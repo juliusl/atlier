@@ -9,10 +9,11 @@ edition = "2021"
 atlier = { path = "../" }
 specs = { version = "0.17.0", features = ["default", "derive"] }
 imnodes = { path = "../imnodes-rs" }
-
+time = "*"
 wgpu = "0.11.0"
 winit = "0.25.0"
 futures = "0.3.17"
-imgui = "0.8.0"
+imgui = { version = "0.8.0", features = [ "tables-api" ] }
 imgui-winit-support = "0.8.0"
 imgui-wgpu = "0.18.0"
+glob = "0.3.0"

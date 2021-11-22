@@ -245,7 +245,7 @@ impl<'a> NodeEditor for NodeModule {
                                             v,
                                             display,
                                             output,
-                                            _,
+                                            None,
                                             output_id,
                                             attr_id,
                                         ) => {
@@ -258,6 +258,23 @@ impl<'a> NodeEditor for NodeModule {
                                                 *attr_id,
                                             );
                                             return next;
+                                        }
+                                        NodeResource::OutputWithAttribute(
+                                            v,
+                                            display,
+                                            output,
+                                            Some(AttributeValue::Map(old)),
+                                            output_id,
+                                            attr_id,
+                                        ) => {
+                                            NodeResource::OutputWithAttribute(
+                                                v.to_owned(),
+                                                display.to_owned(),
+                                                output.to_owned(),
+                                                output(old),
+                                                *output_id,
+                                                *attr_id,
+                                            )
                                         }
                                         NodeResource::Action(
                                             v,
@@ -541,28 +558,114 @@ impl<'a> App<'a> for NodeApp {
         ui.show_demo_window(&mut true);
 
         window.build(&ui, || {
-            self.modules.iter_mut().for_each(|(e, m)| {
-                
-                let node_padding = imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
-                let resources =
-                    <NodeModule as NodeEditor>::setup(&mut m.id_gen, &e, m.resources.to_vec());
-                m.resources = resources;
+        
+            ui.columns(2, "node-editor", false);
+            ui.set_current_column_width(ui.window_size()[0]*0.2);
+            imgui::ChildWindow::new("context").size([0.00, 0.00]).build(ui, ||{
+                self.modules.iter().for_each(|(_, m)| {
+      
+                        if let Some(resources_tree) = imgui::TreeNode::new("resources").push(ui) {
+                            m.resources.iter().for_each(|f| {
+                                if let EditorResource::Node {
+                                    id: Some(i),
+                                    resources,
+                                } = f
+                                {
+                                    let tree_label = format!("Node: {:?}", i);
+                                    ui.set_next_item_width(120.0);
+                                    if let Some(node_token) =
+                                        imgui::TreeNode::new(tree_label).push(ui)
+                                    {
+                                        if let (code, Some(state_index)) = &m.state {
+                                            if let Some(v) = state_index.get(i) {
 
-                let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
+                                                let mut cloneof_v = v.clone();
 
-                let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
+                                                let tree_label = format!("state_index ({})", code);
+                                                if let Some(node_id_token) =
+                                                    imgui::TreeNode::new(tree_label).push(ui)
+                                                {
+                                                    if let AttributeValue::Map(map) = v {
+                                                        for (k, v) in map {
+                                                            if let Some(dictionary_value_token) =
+                                                                imgui::TreeNode::new(k).push(ui)
+                                                            {
+                                                                ui.text(format!("{:#?}", v));
 
-                for i in outer_scope.links_created() {
-                    m.on_node_link_created(i);
-                }
+                                                                dictionary_value_token.pop();
+                                                            }
+                                                        }
+                                                    }
+                                                    node_id_token.pop();
+                                                }
+                                            }
+                                        }
 
-                for i in outer_scope.get_dropped_link() {
-                    m.on_node_link_destroyed(i);
-                }
+                                        resources.iter().for_each(|n| {
+                                            match n {
+                                                NodeResource::Title(title) => ui.text(title),
+                                                NodeResource::Attribute(name, _, Some(v), _) | 
+                                                NodeResource::Output(name, _, Some(v), _) |
+                                                NodeResource::OutputWithAttribute(name, _, _, Some(v), _, _)
+                                                    => AttributeValue::input(name().to_string(), 130.0, ui, &mut v.to_owned()),
+                                               _ => {},
+                                            }
+                                        });
 
-                detatch.pop();
-                node_padding.pop();
+                                        node_token.pop();
+                                    }
+                                };
+
+                                if let EditorResource::Link { start, end, id } = f {
+                                    let tree_label = format!("Link: {:?}", *id);
+
+                                    ui.set_next_item_width(120.0);
+                                    if let Some(link_item) =
+                                        imgui::TreeNode::new(tree_label).push(ui)
+                                    {
+                                        ui.text("linked--");
+
+                                        let start = format!("{:#?}", start);
+                                        let end = format!("{:#?}", end);
+
+                                        ui.text(start);
+                                        ui.text(end);
+                                        link_item.pop();
+                                    }
+                                }
+                            });
+                            resources_tree.pop();
+                        }
+
+                    
+                });
             });
+            ui.next_column();
+            imgui::ChildWindow::new("editor").size([-1.0, 0.00]).build(ui, ||{
+                self.modules.iter_mut().for_each(|(e, m)| {
+                
+                    let node_padding = imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
+                    let resources =
+                        <NodeModule as NodeEditor>::setup(&mut m.id_gen, &e, m.resources.to_vec());
+                    m.resources = resources;
+    
+                    let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
+    
+                    let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
+    
+                    for i in outer_scope.links_created() {
+                        m.on_node_link_created(i);
+                    }
+    
+                    for i in outer_scope.get_dropped_link() {
+                        m.on_node_link_destroyed(i);
+                    }
+    
+                    detatch.pop();
+                    node_padding.pop();
+                });
+            });
+
         });
     }
 }

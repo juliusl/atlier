@@ -63,31 +63,31 @@ impl AttributeValue {
         }
     }
 
-    pub fn input(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
+    pub fn input(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
         match value {
             AttributeValue::Literal(v) => match v {
                 Value::TextBuffer(text) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     imgui::InputText::new(ui, label, text).build();
                 }
                 Value::Int(int) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     imgui::InputInt::new(ui, label, int).build();
                 }
                 Value::Float(float) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     imgui::InputFloat::new(ui, label, float).build();
                 }
                 Value::Bool(bool) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     ui.checkbox(label, bool);
                 }
                 Value::FloatRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
                 }
                 Value::IntRange(v, min, max) => {
-                    ui.set_next_item_width(130.0);
+                    ui.set_next_item_width(width);
                     imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
                 }
             },
@@ -96,14 +96,14 @@ impl AttributeValue {
                 for (name, value) in map {
                     let nested = format!("{}/{}", label, name);
                     ui.spacing();
-                    AttributeValue::input(nested.to_string(), ui, value);
+                    AttributeValue::input(nested.to_string(), width, ui, value);
                 }
             },
             _ => (),
         }
     }
 
-    pub fn select(label: String, ui: &imgui::Ui, value: &mut AttributeValue) {
+    pub fn select(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
         if let AttributeValue::Map(map) = value {
             let selected = map.iter().find(|p| {
                 if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
@@ -115,7 +115,7 @@ impl AttributeValue {
 
             let preview_value = if let Some(s) = selected { s.0 } else { "" };
 
-            ui.set_next_item_width(130.0);
+            ui.set_next_item_width(width);
             if let Some(t) = imgui::ComboBox::new(label)
                 .preview_value(preview_value)
                 .begin(ui)
@@ -152,13 +152,13 @@ pub enum NodeResource {
     ),
     Attribute(
         fn() -> &'static str,
-        fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
+        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     ),
     OutputWithAttribute(
         fn() -> &'static str,
-        fn(name: String, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
+        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
         fn(state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>,
         Option<AttributeValue>,
         Option<imnodes::OutputPinId>,
@@ -166,7 +166,7 @@ pub enum NodeResource {
     ),
     Action(
         fn() -> &'static str,
-        fn(name: String, ui: &imgui::Ui, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>, 
+        fn(name: String, width: f32, ui: &imgui::Ui, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>, 
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     )
@@ -330,6 +330,9 @@ impl NodeResource {
                 NodeResource::Input(name, Some(..)) => {
                     attribute_dictionary.insert(name().to_string(), AttributeValue::Empty);
                 }
+                NodeResource::Action(name, _, Some(v), _) => {
+                    attribute_dictionary.insert(name().to_string(), v.clone());
+                }
                 _ => {}
             });
 
@@ -398,18 +401,21 @@ impl NodeResource {
 
 impl Node for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
+
+        let width = 300.0;
+
         match self {
             NodeResource::Title(title) => node.add_titlebar(|| ui.text(format!("{}\t\t", title))),
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
-                ui.set_next_item_width(130.0);
+                ui.set_next_item_width(width);
                 node.add_input(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
                 });
             }
             NodeResource::Output(name, _, Some(_), Some(id)) => {
                 let name = name();
-                ui.set_next_item_width(130.0);
+                ui.set_next_item_width(width);
                 node.add_output(id.clone(), imnodes::PinShape::Circle, || {
                     ui.text(name);
                 });
@@ -417,7 +423,7 @@ impl Node for NodeResource {
             NodeResource::Attribute(name, display, Some(attr), Some(id)) => {
                 let name = name();
                 node.attribute(id.clone(), || {
-                    display(name.to_string(), &ui, attr);
+                    display(name.to_string(), width, &ui, attr);
                 });
             }
             NodeResource::OutputWithAttribute(
@@ -431,7 +437,7 @@ impl Node for NodeResource {
                 if let Some(attr) = attr {
                     let name = name();
                     node.attribute(attr_id.clone(), || {
-                        display(name.to_string(), &ui, attr);
+                        display(name.to_string(), width, &ui, attr);
                     });
                     node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
                         ui.text(name);
@@ -447,7 +453,7 @@ impl Node for NodeResource {
                 // An action maintains it's own state from when this node is initialzied
                 // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
                 node.attribute(*attr_id, || {
-                    let next = display_action(name().to_string(), &ui, &action_state);
+                    let next = display_action(name().to_string(), width, &ui, &action_state);
                     if let Some(AttributeValue::Map(next_state)) = next {
                         *action_state = next_state; 
                     }
