@@ -92,13 +92,13 @@ impl AttributeValue {
                 }
             },
             AttributeValue::Map(map) => {
-                ui.spacing(); 
+                ui.spacing();
                 for (name, value) in map {
                     let nested = format!("{}/{}", label, name);
                     ui.spacing();
                     AttributeValue::input(nested.to_string(), width, ui, value);
                 }
-            },
+            }
             _ => (),
         }
     }
@@ -164,12 +164,26 @@ pub enum NodeResource {
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
     ),
+    Reducer(
+        fn() -> &'static str,
+        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
+        fn(state: &BTreeMap<String, AttributeValue>) -> (u64, Option<AttributeValue>),
+        fn(attribute: Option<AttributeValue>) -> Option<AttributeValue>,
+        (u64, Option<AttributeValue>),
+        Option<imnodes::OutputPinId>,
+        Option<imnodes::AttributeId>,
+    ),
     Action(
         fn() -> &'static str,
-        fn(name: String, width: f32, ui: &imgui::Ui, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>, 
+        fn(
+            name: String,
+            width: f32,
+            ui: &imgui::Ui,
+            state: &BTreeMap<String, AttributeValue>,
+        ) -> Option<AttributeValue>,
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
-    )
+    ),
 }
 
 impl Hash for NodeResource {
@@ -189,6 +203,12 @@ impl Hash for NodeResource {
                 v.hash(state);
                 output_id.hash(state);
                 attr_id.hash(state)
+            }
+            NodeResource::Reducer(_, _, _, _, (hash, Some(v)), Some(output_id), Some(attr_id)) => {
+                hash.hash(state);
+                v.hash(state);
+                output_id.hash(state);
+                attr_id.hash(state);
             }
             _ => {}
         }
@@ -333,6 +353,9 @@ impl NodeResource {
                 NodeResource::Action(name, _, Some(v), _) => {
                     attribute_dictionary.insert(name().to_string(), v.clone());
                 }
+                NodeResource::Reducer(name, _, _, _, (_, Some(v)), _, _) => {
+                    attribute_dictionary.insert(name().to_string(), v.clone());
+                }
                 _ => {}
             });
 
@@ -355,11 +378,12 @@ impl NodeResource {
     pub fn name(&self) -> String {
         match self {
             NodeResource::Title(s) => s.to_string(),
-            NodeResource::Input(s, _) => s().to_string(),
-            NodeResource::Output(s, ..) => s().to_string(),
-            NodeResource::Attribute(s, _, _, _) => s().to_string(),
-            NodeResource::OutputWithAttribute(s, _, _, _, _, _) => s().to_string(),
-            NodeResource::Action(s, _, _, _) => s().to_string(),
+            NodeResource::Input(s, _)
+            | NodeResource::Output(s, ..)
+            | NodeResource::Attribute(s, _, _, _)
+            | NodeResource::OutputWithAttribute(s, _, _, _, _, _)
+            | NodeResource::Action(s, _, _, _)
+            | NodeResource::Reducer(s, _, _, _, _, _, _) => s().to_string(),
         }
     }
 
@@ -372,7 +396,10 @@ impl NodeResource {
             NodeResource::OutputWithAttribute(_, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?}", v, o, a)
             }
-            NodeResource::Action(s, _, a, i) => format!("{:#?} {:#?} {:#?}", s, a, i),
+            NodeResource::Action(s, _, a, i) => format!("{:#?} {:#?} {:#?}", s(), a, i),
+            NodeResource::Reducer(s, _, _, _, v, o, a) => {
+                format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
+            }
         }
     }
 
@@ -395,13 +422,15 @@ impl NodeResource {
                 NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None)
             }
             NodeResource::Action(n, a, v, _) => NodeResource::Action(*n, *a, v.clone(), None),
+            NodeResource::Reducer(n, d, m, r, v, _, _) => {
+                NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
+            }
         }
     }
 }
 
 impl Node for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
-
         let width = 300.0;
 
         match self {
@@ -444,18 +473,36 @@ impl Node for NodeResource {
                     });
                 }
             }
+            NodeResource::Reducer(
+                name,
+                display,
+                _,
+                _,
+                (_, Some(attr)),
+                Some(output_id),
+                Some(attr_id),
+            ) => {
+                let name = name();
+                node.attribute(attr_id.clone(), || {
+                    display(name.to_string(), width, &ui, attr);
+                });
+
+                node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
+                    ui.text(name);
+                })
+            }
             NodeResource::Action(
                 name,
                 display_action,
                 Some(AttributeValue::Map(action_state)),
-                Some(attr_id)
+                Some(attr_id),
             ) => {
                 // An action maintains it's own state from when this node is initialzied
                 // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
                 node.attribute(*attr_id, || {
                     let next = display_action(name().to_string(), width, &ui, &action_state);
                     if let Some(AttributeValue::Map(next_state)) = next {
-                        *action_state = next_state; 
+                        *action_state = next_state;
                     }
                 })
             }
@@ -481,6 +528,17 @@ impl Node for NodeResource {
                         name,
                         display,
                         vfn,
+                        val,
+                        Some(id_gen.next_output_pin()),
+                        Some(id_gen.next_attribute()),
+                    )
+                }
+                NodeResource::Reducer(name, display, map, reduce, val, None, None) => {
+                    NodeResource::Reducer(
+                        name,
+                        display,
+                        map,
+                        reduce,
                         val,
                         Some(id_gen.next_output_pin()),
                         Some(id_gen.next_attribute()),

@@ -23,6 +23,7 @@ pub use node::expression;
 pub use node::NodeVisitor;
 pub use node::NodeInterior;
 pub use node::NodeExterior;
+pub use node::Reducer;
 pub use node::expression::*;
 
 pub use font::cascadia_code;

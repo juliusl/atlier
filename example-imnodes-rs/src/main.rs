@@ -3,7 +3,7 @@ use imgui::{
     TableColumnSetup,
 };
 use specs::prelude::*;
-use std::{collections::BTreeMap, hash::Hasher};
+use std::{collections::BTreeMap};
 use winit::event_loop::ControlFlow;
 
 fn main() {
@@ -37,6 +37,7 @@ fn main() {
             FloatExpression::<Subtract>::resource(None),
             FloatExpression::<Divide>::resource(None),
             FloatExpression::<Multiply>::resource(None),
+            ListDirectory::resource(None),
             EditorResource::Node {
                 resources: vec![
                     NodeResource::Title("hello"),
@@ -264,134 +265,12 @@ impl Test {
                 Some(AttributeValue::Literal(Value::TextBuffer("./".to_string()))),
                 None,
             ),
-            NodeResource::OutputWithAttribute(
-                || "files",
-                display_file_list,
-                |state| {
-                    if let Some(AttributeValue::Literal(Value::TextBuffer(path))) = state.get("filepath")
-                    {
-                        read_dir(path, state.get("files"))
-                    } else {
-                        None
-                    }
-                },
-                None,
-                None,
-                None,
-            ),
-            NodeResource::Action(
-                || "internals",
-                display_internals,
-                None,
-                None,
-            ), 
+            // NodeResource::Action(
+            //     || "internals",
+            //     display_internals,
+            //     None,
+            //     None,
+            // ), 
         ]
-    }
-}
-
-fn display_file_list(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
-    if let AttributeValue::Map(map) = value {
-        if let Some(table_token) = ui.begin_table_header_with_sizing(
-            label,
-            [
-                TableColumnSetup::new("filename"),
-                TableColumnSetup::new(""),
-            ],
-            imgui::TableFlags::RESIZABLE | imgui::TableFlags::SCROLL_Y, 
-            [width*2.0, 300.0], 
-            0.00
-        ) {
-            ui.spacing();
-
-
-            for (key, value) in map {
-                ui.table_next_row();
-                ui.table_next_column();
-                // ui.text(key);
-
-                if let AttributeValue::Literal(Value::Bool(selected)) = value {
-                    if imgui::Selectable::new(key).span_all_columns(true).build_with_ref(ui, selected) {
-                        ui.set_item_default_focus();
-                    }
-                    // ui.table_next_column();
-                    // if let Some(AttributeValue::Literal(Value::TextBuffer(created))) = m.get("created") {
-                    //     ui.text(format!("{:?}", created))
-                    // }
-                }
-            }
-            table_token.end();
-        }
-    }
-}
-use time::OffsetDateTime;
-
-fn read_dir(path: &str, state: Option<&AttributeValue>) -> Option<AttributeValue> {
-
-    if let Some(v) = state {
-        return Some(v.to_owned());
-    }
-
-    if let Ok(paths) = std::fs::read_dir(path) {
-            let mut map = BTreeMap::<String, AttributeValue>::new();
-            for path in paths {
-                if let Ok(dir_entry) = path {
-                    if let (Some(path), Ok(metadata)) = (
-                        dir_entry.file_name().to_str(),
-                        dir_entry.metadata(),
-                    ) {
-                        map.insert(
-                            path.to_string(),
-                            AttributeValue::Literal(Value::Bool(false))
-                        );
-
-                        // if let Ok(created) = metadata.created() {
-                            // let mut file_info =  BTreeMap::new();
-                            // let created = OffsetDateTime::from(created);
-                            // let created = Value::TextBuffer(
-                            //     format!("{}-{}-{} {}:{}", created.year(), created.month(), created.day(), created.hour(), created.minute())
-                            // );
-                            // file_info.insert("created".to_string(), AttributeValue::Literal(created));
-    
-                        // }
-                    }
-                }
-            }
-
-            Some(AttributeValue::Map(map))
-        } else {
-        None
-    }
-}
-
-fn display_internals(name: String, width:f32, ui: &imgui::Ui, state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue> {
-    ui.spacing();
-
-    if let Some(table_token) = ui.begin_table_header_with_sizing(name, 
-        [imgui::TableColumnSetup::new("property"), imgui::TableColumnSetup::new("value")], 
-        imgui::TableFlags::RESIZABLE | imgui::TableFlags::SCROLL_Y, 
-        [width*2.0, 300.0], 
-        0.00) {
-            for (l, v) in state {
-                ui.table_next_row();
-                ui.table_next_column();
-                imgui::TreeNode::new(l).build(ui, || {
-                    ui.table_next_column();
-                    ui.text(format!("{:#?}", v));
-                });
-            }
-
-            table_token.end();
-        }
-
-    Some(AttributeValue::Map(state.to_owned()))
-}
-
-fn display_file(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
-    if let AttributeValue::Literal(Value::TextBuffer(path)) = value {
-        if std::path::Path::new(path).exists() {
-            if let Ok(mut contents) = std::fs::read_to_string(path){
-                ui.input_text_multiline(label, &mut contents, [width, 0.00]).build();
-            }
-        }
     }
 }

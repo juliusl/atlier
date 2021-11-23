@@ -254,6 +254,41 @@ impl<'a> NodeEditor for NodeModule {
                                         );
                                         return next;
                                     }
+                                    NodeResource::Reducer(
+                                        name,
+                                        display,
+                                        map,
+                                        reduce,
+                                        (hash_code, reduced_state),
+                                        output_id,
+                                        attr_id
+                                    ) => {
+                                        let (next_hash_code, next_param) = map(state); 
+
+                                        let next =  if next_hash_code != *hash_code {
+                                            let next_state = reduce(next_param);
+                                            NodeResource::Reducer(
+                                                name.to_owned(),
+                                                display.to_owned(),
+                                                map.to_owned(),
+                                                reduce.to_owned(),
+                                                (next_hash_code, next_state),
+                                                *output_id,
+                                                *attr_id,
+                                            )
+                                        } else {
+                                            NodeResource::Reducer(
+                                                name.to_owned(),
+                                                display.to_owned(),
+                                                map.to_owned(),
+                                                reduce.to_owned(),
+                                                (*hash_code, reduced_state.to_owned()),
+                                                *output_id,
+                                                *attr_id,
+                                            )
+                                        };
+                                        next
+                                    }
                                     NodeResource::Action(v, a, None, attr_id) => {
                                         NodeResource::Action(
                                             v.to_owned(),
@@ -538,95 +573,6 @@ impl<'a> App<'a> for NodeApp {
         ui.show_demo_window(&mut true);
 
         window.build(&ui, || {
-            ui.columns(2, "node-editor", false);
-            ui.set_current_column_width(ui.window_size()[0] * 0.2);
-            imgui::ChildWindow::new("context")
-                .size([0.00, 0.00])
-                .build(ui, || {
-                    self.modules.iter().for_each(|(_, m)| {
-                        if let Some(resources_tree) = imgui::TreeNode::new("resources").push(ui) {
-                            m.resources.iter().for_each(|f| {
-                                if let EditorResource::Node {
-                                    id: Some(i),
-                                    resources,
-                                } = f
-                                {
-                                    let tree_label = format!("Node: {:?}", i);
-                                    ui.set_next_item_width(120.0);
-                                    if let Some(node_token) =
-                                        imgui::TreeNode::new(tree_label).push(ui)
-                                    {
-                                        if let (code, Some(state_index)) = &m.state {
-                                            if let Some(v) = state_index.get(i) {
-                                                let mut cloneof_v = v.clone();
-
-                                                let tree_label = format!("state_index ({})", code);
-                                                if let Some(node_id_token) =
-                                                    imgui::TreeNode::new(tree_label).push(ui)
-                                                {
-                                                    if let AttributeValue::Map(map) = v {
-                                                        for (k, v) in map {
-                                                            if let Some(dictionary_value_token) =
-                                                                imgui::TreeNode::new(k).push(ui)
-                                                            {
-                                                                ui.text(format!("{:#?}", v));
-
-                                                                dictionary_value_token.pop();
-                                                            }
-                                                        }
-                                                    }
-                                                    node_id_token.pop();
-                                                }
-                                            }
-                                        }
-
-                                        resources.iter().for_each(|n| match n {
-                                            NodeResource::Title(title) => ui.text(title),
-                                            NodeResource::Attribute(name, _, Some(v), _)
-                                            | NodeResource::Output(name, _, Some(v), _)
-                                            | NodeResource::OutputWithAttribute(
-                                                name,
-                                                _,
-                                                _,
-                                                Some(v),
-                                                _,
-                                                _,
-                                            ) => AttributeValue::input(
-                                                name().to_string(),
-                                                130.0,
-                                                ui,
-                                                &mut v.to_owned(),
-                                            ),
-                                            _ => {}
-                                        });
-
-                                        node_token.pop();
-                                    }
-                                };
-
-                                if let EditorResource::Link { start, end, id } = f {
-                                    let tree_label = format!("Link: {:?}", *id);
-
-                                    ui.set_next_item_width(120.0);
-                                    if let Some(link_item) =
-                                        imgui::TreeNode::new(tree_label).push(ui)
-                                    {
-                                        ui.text("linked--");
-
-                                        let start = format!("{:#?}", start);
-                                        let end = format!("{:#?}", end);
-
-                                        ui.text(start);
-                                        ui.text(end);
-                                        link_item.pop();
-                                    }
-                                }
-                            });
-                            resources_tree.pop();
-                        }
-                    });
-                });
-            ui.next_column();
             imgui::ChildWindow::new("editor")
                 .size([-1.0, 0.00])
                 .build(ui, || {
