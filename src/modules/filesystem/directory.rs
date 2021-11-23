@@ -35,7 +35,7 @@ impl NodeExterior for ListDirectory {
                 ),
                 NodeResource::Reducer(
                     || "selected files",
-                    display_file_list, 
+                    Self::table_select, 
                     Self::map,
                     Self::reduce,
                     (0, None),
@@ -57,9 +57,17 @@ fn read_dir(path: &str) -> Option<AttributeValue> {
                         dir_entry.file_name().to_str(),
                         dir_entry.metadata(),
                     ) {
+                        let mut filedata = BTreeMap::<String, AttributeValue>::new();
+
+                        filedata.insert("selected".to_string(), 
+                        AttributeValue::Literal(Value::Bool(false)));
+
+                        filedata.insert("filepath".to_string(),
+                        AttributeValue::Literal(Value::TextBuffer(dir_entry.path().to_string_lossy().to_string())));
+
                         map.insert(
-                            path.to_string(),
-                            AttributeValue::Literal(Value::Bool(false))
+                           path.to_string(),
+                            AttributeValue::Map(filedata),
                         );
                     }
                 }
@@ -67,34 +75,5 @@ fn read_dir(path: &str) -> Option<AttributeValue> {
             Some(AttributeValue::Map(map))
         } else {
         None
-    }
-}
-
-fn display_file_list(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
-    if let AttributeValue::Map(map) = value {
-        if let Some(table_token) = ui.begin_table_header_with_sizing(
-            label,
-            [
-                TableColumnSetup::new("filename"),
-                TableColumnSetup::new(""),
-            ],
-            imgui::TableFlags::RESIZABLE | imgui::TableFlags::SCROLL_Y, 
-            [width, 300.0], 
-            0.00
-        ) {
-            ui.spacing();
-
-
-            for (key, value) in map {
-                ui.table_next_row();
-                ui.table_next_column();
-                if let AttributeValue::Literal(Value::Bool(selected)) = value {
-                    if imgui::Selectable::new(key).span_all_columns(true).build_with_ref(ui, selected) {
-                        ui.set_item_default_focus();
-                    }
-                }
-            }
-            table_token.end();
-        }
     }
 }
