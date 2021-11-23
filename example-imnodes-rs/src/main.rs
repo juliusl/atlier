@@ -1,7 +1,4 @@
 use atlier::prelude::*;
-use imgui::{
-    TableColumnSetup,
-};
 use specs::prelude::*;
 use std::{collections::BTreeMap};
 use winit::event_loop::ControlFlow;
@@ -37,8 +34,8 @@ fn main() {
             FloatExpression::<Subtract>::resource(None),
             FloatExpression::<Divide>::resource(None),
             FloatExpression::<Multiply>::resource(None),
-            EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
             ListDirectory::resource(None),
+            EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
             EditorResource::Node {
                 resources: vec![
                     NodeResource::Title("hello"),
@@ -62,53 +59,6 @@ fn main() {
                 .node(),
                 id: None,
              },
-            // EditorResource::Node {
-            //     resources: vec![
-            //         NodeResource::Title("select"),
-            //         NodeResource::Input(||"file", None),
-            //         NodeResource::Attribute(||"filter", AttributeValue::input, Some(Value::TextBuffer(String::new()).into()), None),
-            //         NodeResource::OutputWithAttribute(
-            //             || "selected",
-            //             display_file,
-            //             |state| {
-            //                 if let (Some(AttributeValue::Map(m))) = (state.get("files")) {
-            //                     let selected = m.iter().find(|(_, a)| {
-            //                         match a {
-            //                             AttributeValue::Literal(Value::Bool)
-            //                         }
-            //                     })
-            //                 } else {
-            //                     None
-            //                 }
-            //             },
-            //             None,
-            //             None,
-            //             None
-            //         ),
-            //     ],
-            //     id: None,
-            // },
-            // EditorResource::Node {
-            //     resources: vec![
-            //         NodeResource::Title("view file"),
-            //         NodeResource::Input(||"filepath", None),
-            //         NodeResource::Action(||"contents", 
-            //         |label, width, ui, state| {
-            //             if let Some(path) = state.get("filepath") {
-            //                 display_file(label, width, ui, &mut path.to_owned());
-            //             }
-
-            //             Some(AttributeValue::Map(state.to_owned()))
-            //         }, None, None),
-            //         NodeResource::Action(
-            //             || "internals",
-            //             display_internals,
-            //             None,
-            //             None,
-            //         ),
-            //     ],
-            //     id: None,
-            // }
         ],
         false,
     );

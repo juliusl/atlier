@@ -363,8 +363,7 @@ impl NodeResource {
 impl NodeResource {
     pub fn name(&self) -> String {
         match self {
-            NodeResource::Extension(s)|
-            NodeResource::Title(s) => s.to_string(),
+            NodeResource::Extension(s) | NodeResource::Title(s) => s.to_string(),
             NodeResource::Input(s, _)
             | NodeResource::Output(s, ..)
             | NodeResource::Attribute(s, _, _, _)
@@ -375,8 +374,7 @@ impl NodeResource {
 
     pub fn debug_state(&self) -> String {
         match self {
-            NodeResource::Extension(_)|
-            NodeResource::Title(_) => String::new(),
+            NodeResource::Extension(_) | NodeResource::Title(_) => String::new(),
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
@@ -421,7 +419,7 @@ impl Node for NodeResource {
                 // TODO: Ideally I can use a seperator here
                 ui.new_line();
                 ui.text(extention_title.to_string());
-            },
+            }
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
                 ui.set_next_item_width(width);
@@ -535,24 +533,29 @@ pub enum EditorResource {
 
 impl EditorResource {
     pub fn merge(&self, ref other: EditorResource) -> EditorResource {
-        if let (EditorResource::Node { id, resources }, EditorResource::Node {..} ) = (self, other) {
-            let mut my_resources = resources.to_vec(); 
-            if let EditorResource::Node{ resources, .. } = other {
-                for r in resources.iter().filter_map(|f| match f {
-                    NodeResource::Title(t) => Some(NodeResource::Extension(t)),
-                    NodeResource::Extension(_)|
-                    NodeResource::Input(_, _) | 
-                    NodeResource::Output(_, _, _, _)|
-                    NodeResource::Attribute(_, _, _, _)|
-                    NodeResource::Reducer(_, _, _, _, _, _, _)|
-                    NodeResource::Action(_, _, _, _) => Some(f.copy_blank()),
-                }).map(|r| r.copy_blank()) {
-                    my_resources.push(r); 
+        if let (EditorResource::Node { id, resources }, EditorResource::Node { .. }) = (self, other)
+        {
+            let mut my_resources = resources.to_vec();
+            if let EditorResource::Node { resources, .. } = other {
+                for r in resources
+                    .iter()
+                    .filter_map(|f| match f {
+                        NodeResource::Title(t) => Some(NodeResource::Extension(t)),
+                        NodeResource::Extension(_)
+                        | NodeResource::Input(_, _)
+                        | NodeResource::Output(_, _, _, _)
+                        | NodeResource::Attribute(_, _, _, _)
+                        | NodeResource::Reducer(_, _, _, _, _, _, _)
+                        | NodeResource::Action(_, _, _, _) => Some(f.copy_blank()),
+                    })
+                    .map(|r| r.copy_blank())
+                {
+                    my_resources.push(r);
                 }
             }
             EditorResource::Node {
                 resources: my_resources,
-                id: id.clone()
+                id: id.clone(),
             }
         } else {
             self.copy_blank(None)
@@ -609,15 +612,18 @@ impl NodeEditor for EditorResource {
             EditorResource::Node {
                 id: Some(id),
                 resources,
-            } => editor.add_node(id.clone(), |mut scope| {
+            } =>
+            {
+            editor.add_node(id.clone(), |mut scope| {
                 let mut iter = resources.iter_mut();
 
                 while let Some(next) = iter.next() {
                     let node_scope = &mut scope;
                     next.show(node_scope, ui);
                 }
-            }),
-            _ => {}
+            });
+        },
+        _ => {}
         };
     }
 
