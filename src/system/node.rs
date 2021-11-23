@@ -48,7 +48,6 @@ pub trait Node {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui);
 }
 
-
 // NodeModule encapsulates a single editor and it's resources
 // it is an node event handler and will detect new connections
 pub struct NodeModule {
@@ -221,93 +220,82 @@ impl<'a> NodeEditor for NodeModule {
                 resources,
             } = r
             {
-                let self_res = resources.to_vec();
-                if self_res.iter().any(|f| match f {
-                    NodeResource::Output(..) | 
-                    NodeResource::OutputWithAttribute(..) |
-                    NodeResource::Action(..) => true,
-                    _ => false,
-                }) {
-                    let update: Vec<NodeResource> = self_res
-                        .iter()
-                        .map(|n| {
-                            if let Some(state) = &self.state.1 {
-                                if let Some(AttributeValue::Map(state)) = state.get(nodeid) {
-                                    match n {
-                                        NodeResource::Output(v, func, _, i) => {
-                                            let next = NodeResource::Output(
-                                                v.to_owned(),
-                                                func.to_owned(),
-                                                func(state),
-                                                *i,
-                                            );
-                                            return next;
-                                        }
-                                        NodeResource::OutputWithAttribute(
-                                            v,
-                                            display,
-                                            output,
-                                            None,
-                                            output_id,
-                                            attr_id,
-                                        ) => {
-                                            let next = NodeResource::OutputWithAttribute(
-                                                v.to_owned(),
-                                                display.to_owned(),
-                                                output.to_owned(),
-                                                output(state),
-                                                *output_id,
-                                                *attr_id,
-                                            );
-                                            return next;
-                                        }
-                                        NodeResource::Action(
-                                            v,
-                                            a,
-                                            None,
-                                            attr_id,
-                                        ) => {
-                                            NodeResource::Action(
-                                                v.to_owned(),
-                                                a.to_owned(),
-                                                Some(AttributeValue::Map(state.clone())),
-                                                *attr_id)
-                                        }
-                                        NodeResource::Action(
-                                            v,
-                                            a,
-                                            Some(AttributeValue::Map(old)),
-                                            attr_id,
-                                        ) => {
-                                            let mut next = old.to_owned();
-
-                                            for (key, val) in state {
-                                                next.insert(key.clone(), val.clone()); 
-                                            }
-
-                                            NodeResource::Action(
-                                                v.to_owned(),
-                                                a.to_owned(),
-                                                Some(AttributeValue::Map(next)),
-                                                *attr_id)
-                                        }
-                                        _ => return n.to_owned(),
+                let update: Vec<NodeResource> = resources
+                    .to_vec()
+                    .iter()
+                    .map(|n| {
+                        if let Some(state) = &self.state.1 {
+                            if let Some(AttributeValue::Map(state)) = state.get(nodeid) {
+                                match n {
+                                    NodeResource::Output(v, func, _, i) => {
+                                        let next = NodeResource::Output(
+                                            v.to_owned(),
+                                            func.to_owned(),
+                                            func(state),
+                                            *i,
+                                        );
+                                        return next;
                                     }
-                                } else {
-                                    n.to_owned()
+                                    NodeResource::OutputWithAttribute(
+                                        v,
+                                        display,
+                                        output,
+                                        None,
+                                        output_id,
+                                        attr_id,
+                                    ) => {
+                                        let next = NodeResource::OutputWithAttribute(
+                                            v.to_owned(),
+                                            display.to_owned(),
+                                            output.to_owned(),
+                                            output(state),
+                                            *output_id,
+                                            *attr_id,
+                                        );
+                                        return next;
+                                    }
+                                    NodeResource::Action(v, a, None, attr_id) => {
+                                        NodeResource::Action(
+                                            v.to_owned(),
+                                            a.to_owned(),
+                                            Some(AttributeValue::Map(state.clone())),
+                                            *attr_id,
+                                        )
+                                    }
+                                    NodeResource::Action(
+                                        v,
+                                        a,
+                                        Some(AttributeValue::Map(old)),
+                                        attr_id,
+                                    ) => {
+                                        let mut next = old.to_owned();
+
+                                        for (key, val) in state {
+                                            next.insert(key.clone(), val.clone());
+                                        }
+
+                                        NodeResource::Action(
+                                            v.to_owned(),
+                                            a.to_owned(),
+                                            Some(AttributeValue::Map(next)),
+                                            *attr_id,
+                                        )
+                                    }
+                                    _ => return n.to_owned(),
                                 }
                             } else {
-                                return n.to_owned();
+                                n.to_owned()
                             }
-                        })
-                        .collect();
+                        } else {
+                            return n.to_owned();
+                        }
+                    })
+                    .collect();
 
-                    return EditorResource::Node {
-                        resources: update,
-                        id: Some(*nodeid),
-                    };
-                }
-                return r.to_owned();
+                return EditorResource::Node {
+                    resources: update,
+                    id: Some(*nodeid),
+                };
             } else {
                 return r.to_owned();
             }
@@ -322,10 +310,10 @@ impl<'a> NodeEditor for NodeModule {
         if let (_, None) = self.state {
             let state_index = NodeResource::index_editor_state(self.resources.to_vec());
             self.state = (hash_code, Some(state_index));
-        } else if self.state.0 != hash_code { 
+        } else if self.state.0 != hash_code {
             let state_index = NodeResource::index_editor_state(self.resources.to_vec());
             self.state = (hash_code, Some(state_index));
-        } 
+        }
     }
 
     fn get_state(&self) -> Vec<EditorResource> {
@@ -338,22 +326,28 @@ impl<'a> NodeEditor for NodeModule {
             let pos = ui.mouse_pos_on_opening_current_popup();
             let mut added: HashSet<String> = HashSet::new();
             if let Some(expression_menu_token) = ui.begin_menu("Expressions") {
-                self.resources.clone().iter().filter(|r| match r {
-                    EditorResource::Node { .. } => true,
-                    _ => false,
-                }).for_each(|editor_resource| {
-                    // TODO: This can be optimized by building a node cache on initialization, that way all nodes aren't iterated over and over
-                    let title = editor_resource
-                        .get_state()
-                        .clone()
-                        .iter()
-                        .find_map(|f| match f {
-                            NodeResource::Title(t) => Some(t.clone()),
-                            _ => None,
-                        });
+                self.resources
+                    .clone()
+                    .iter()
+                    .filter(|r| match r {
+                        EditorResource::Node { .. } => true,
+                        _ => false,
+                    })
+                    .for_each(|editor_resource| {
+                        // TODO: This can be optimized by building a node cache on initialization, that way all nodes aren't iterated over and over
+                        let title =
+                            editor_resource
+                                .get_state()
+                                .clone()
+                                .iter()
+                                .find_map(|f| match f {
+                                    NodeResource::Title(t) => Some(t.clone()),
+                                    _ => None,
+                                });
 
-                    match title {
-                        Some(title) if added.insert(title.to_string()) => if imgui::MenuItem::new(title).build(ui) {
+                        match title {
+                            Some(title) if added.insert(title.to_string()) => {
+                                if imgui::MenuItem::new(title).build(ui) {
                                     match editor_resource {
                                         EditorResource::Node { .. } => {
                                             let new_node = self.id_gen.next_node();
@@ -369,9 +363,10 @@ impl<'a> NodeEditor for NodeModule {
                                         _ => (),
                                     }
                                 }
-                        _ => (),
-                    }
-                });
+                            }
+                            _ => (),
+                        }
+                    });
                 expression_menu_token.end();
             }
             popup_token.end();
@@ -543,12 +538,12 @@ impl<'a> App<'a> for NodeApp {
         ui.show_demo_window(&mut true);
 
         window.build(&ui, || {
-        
             ui.columns(2, "node-editor", false);
-            ui.set_current_column_width(ui.window_size()[0]*0.2);
-            imgui::ChildWindow::new("context").size([0.00, 0.00]).build(ui, ||{
-                self.modules.iter().for_each(|(_, m)| {
-      
+            ui.set_current_column_width(ui.window_size()[0] * 0.2);
+            imgui::ChildWindow::new("context")
+                .size([0.00, 0.00])
+                .build(ui, || {
+                    self.modules.iter().for_each(|(_, m)| {
                         if let Some(resources_tree) = imgui::TreeNode::new("resources").push(ui) {
                             m.resources.iter().for_each(|f| {
                                 if let EditorResource::Node {
@@ -563,7 +558,6 @@ impl<'a> App<'a> for NodeApp {
                                     {
                                         if let (code, Some(state_index)) = &m.state {
                                             if let Some(v) = state_index.get(i) {
-
                                                 let mut cloneof_v = v.clone();
 
                                                 let tree_label = format!("state_index ({})", code);
@@ -586,15 +580,24 @@ impl<'a> App<'a> for NodeApp {
                                             }
                                         }
 
-                                        resources.iter().for_each(|n| {
-                                            match n {
-                                                NodeResource::Title(title) => ui.text(title),
-                                                NodeResource::Attribute(name, _, Some(v), _) | 
-                                                NodeResource::Output(name, _, Some(v), _) |
-                                                NodeResource::OutputWithAttribute(name, _, _, Some(v), _, _)
-                                                    => AttributeValue::input(name().to_string(), 130.0, ui, &mut v.to_owned()),
-                                               _ => {},
-                                            }
+                                        resources.iter().for_each(|n| match n {
+                                            NodeResource::Title(title) => ui.text(title),
+                                            NodeResource::Attribute(name, _, Some(v), _)
+                                            | NodeResource::Output(name, _, Some(v), _)
+                                            | NodeResource::OutputWithAttribute(
+                                                name,
+                                                _,
+                                                _,
+                                                Some(v),
+                                                _,
+                                                _,
+                                            ) => AttributeValue::input(
+                                                name().to_string(),
+                                                130.0,
+                                                ui,
+                                                &mut v.to_owned(),
+                                            ),
+                                            _ => {}
                                         });
 
                                         node_token.pop();
@@ -621,36 +624,38 @@ impl<'a> App<'a> for NodeApp {
                             });
                             resources_tree.pop();
                         }
-
-                    
+                    });
                 });
-            });
             ui.next_column();
-            imgui::ChildWindow::new("editor").size([-1.0, 0.00]).build(ui, ||{
-                self.modules.iter_mut().for_each(|(e, m)| {
-                
-                    let node_padding = imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
-                    let resources =
-                        <NodeModule as NodeEditor>::setup(&mut m.id_gen, &e, m.resources.to_vec());
-                    m.resources = resources;
-    
-                    let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
-    
-                    let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
-    
-                    for i in outer_scope.links_created() {
-                        m.on_node_link_created(i);
-                    }
-    
-                    for i in outer_scope.get_dropped_link() {
-                        m.on_node_link_destroyed(i);
-                    }
-    
-                    detatch.pop();
-                    node_padding.pop();
-                });
-            });
+            imgui::ChildWindow::new("editor")
+                .size([-1.0, 0.00])
+                .build(ui, || {
+                    self.modules.iter_mut().for_each(|(e, m)| {
+                        let node_padding =
+                            imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
+                        let resources = <NodeModule as NodeEditor>::setup(
+                            &mut m.id_gen,
+                            &e,
+                            m.resources.to_vec(),
+                        );
+                        m.resources = resources;
 
+                        let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
+
+                        let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
+
+                        for i in outer_scope.links_created() {
+                            m.on_node_link_created(i);
+                        }
+
+                        for i in outer_scope.get_dropped_link() {
+                            m.on_node_link_destroyed(i);
+                        }
+
+                        detatch.pop();
+                        node_padding.pop();
+                    });
+                });
         });
     }
 }
