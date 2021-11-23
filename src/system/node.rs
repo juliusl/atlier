@@ -223,7 +223,9 @@ impl<'a> NodeEditor for NodeModule {
             {
                 let self_res = resources.to_vec();
                 if self_res.iter().any(|f| match f {
-                    NodeResource::Output(..) => true,
+                    NodeResource::Output(..) | 
+                    NodeResource::OutputWithAttribute(..) |
+                    NodeResource::Action(..) => true,
                     _ => false,
                 }) {
                     let update: Vec<NodeResource> = self_res
@@ -258,23 +260,6 @@ impl<'a> NodeEditor for NodeModule {
                                                 *attr_id,
                                             );
                                             return next;
-                                        }
-                                        NodeResource::OutputWithAttribute(
-                                            v,
-                                            display,
-                                            output,
-                                            Some(AttributeValue::Map(old)),
-                                            output_id,
-                                            attr_id,
-                                        ) => {
-                                            NodeResource::OutputWithAttribute(
-                                                v.to_owned(),
-                                                display.to_owned(),
-                                                output.to_owned(),
-                                                output(old),
-                                                *output_id,
-                                                *attr_id,
-                                            )
                                         }
                                         NodeResource::Action(
                                             v,

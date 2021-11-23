@@ -52,43 +52,36 @@ fn main() {
                 ],
                 id: None,
             },
-            // EditorResource::Node {
-            //     resources: Test {
-            //         lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-            //         rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-            //     }
-            //     .node(),
-            //     id: None,
-            // },
+            EditorResource::Node {
+                resources: Test {
+                    lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
+                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
+                }
+                .node(),
+                id: None,
+             },
             // EditorResource::Node {
             //     resources: vec![
             //         NodeResource::Title("select"),
-            //         NodeResource::Input(||"items", None),
+            //         NodeResource::Input(||"file", None),
             //         NodeResource::Attribute(||"filter", AttributeValue::input, Some(Value::TextBuffer(String::new()).into()), None),
-            //         NodeResource::Output(
+            //         NodeResource::OutputWithAttribute(
             //             || "selected",
+            //             display_file,
             //             |state| {
-            //                 if let (
-            //                     Some(AttributeValue::Literal(Value::TextBuffer(filter))), 
-            //                     Some(AttributeValue::Map(m))) = (state.get("filter"), state.get("items")) {
-                                
-            //                     if let Some(found) = m.iter().find(|f| f.0 == filter) {
-            //                         Some(found.1.clone())
-            //                     } else {
-            //                         None
-            //                     }
+            //                 if let (Some(AttributeValue::Map(m))) = (state.get("files")) {
+            //                     let selected = m.iter().find(|(_, a)| {
+            //                         match a {
+            //                             AttributeValue::Literal(Value::Bool)
+            //                         }
+            //                     })
             //                 } else {
             //                     None
             //                 }
             //             },
             //             None,
+            //             None,
             //             None
-            //         ),
-            //         NodeResource::Action(
-            //             || "internals",
-            //             display_internals,
-            //             None,
-            //             None,
             //         ),
             //     ],
             //     id: None,
@@ -277,23 +270,9 @@ impl Test {
                 |state| {
                     if let Some(AttributeValue::Literal(Value::TextBuffer(path))) = state.get("filepath")
                     {
-                        let mut outside_hasher = std::collections::hash_map::DefaultHasher::default();
-                        let next = read_dir(path);
-                        next.hash(&mut outside_hasher);
-                        if let Some(v) = state.get("files") {
-                            let mut inside_hasher = std::collections::hash_map::DefaultHasher::default();
-                            v.hash(&mut inside_hasher);
-
-                            if outside_hasher.finish() == inside_hasher.finish() {
-                                return Some(v.to_owned())
-                            } else {
-                                return next;
-                            }
-                        } else {
-                            return next;
-                        }
+                        read_dir(path, state.get("files"))
                     } else {
-                        Some(AttributeValue::Map(BTreeMap::new()))
+                        None
                     }
                 },
                 None,
@@ -325,20 +304,20 @@ fn display_file_list(label: String, width: f32, ui: &imgui::Ui, value: &mut Attr
             ui.spacing();
 
 
-            for (key, _) in map {
+            for (key, value) in map {
                 ui.table_next_row();
                 ui.table_next_column();
-                ui.text(key);
+                // ui.text(key);
 
-                // if let AttributeValue::Literal(Value::Bool(selected)) = value {
-                //     if imgui::Selectable::new(key).span_all_columns(true).build_with_ref(ui, selected) {
-                //         ui.set_item_default_focus();
-                //     }
-                //     // ui.table_next_column();
-                //     // if let Some(AttributeValue::Literal(Value::TextBuffer(created))) = m.get("created") {
-                //     //     ui.text(format!("{:?}", created))
-                //     // }
-                // }
+                if let AttributeValue::Literal(Value::Bool(selected)) = value {
+                    if imgui::Selectable::new(key).span_all_columns(true).build_with_ref(ui, selected) {
+                        ui.set_item_default_focus();
+                    }
+                    // ui.table_next_column();
+                    // if let Some(AttributeValue::Literal(Value::TextBuffer(created))) = m.get("created") {
+                    //     ui.text(format!("{:?}", created))
+                    // }
+                }
             }
             table_token.end();
         }
@@ -346,7 +325,12 @@ fn display_file_list(label: String, width: f32, ui: &imgui::Ui, value: &mut Attr
 }
 use time::OffsetDateTime;
 
-fn read_dir(path: &str) -> Option<AttributeValue> {
+fn read_dir(path: &str, state: Option<&AttributeValue>) -> Option<AttributeValue> {
+
+    if let Some(v) = state {
+        return Some(v.to_owned());
+    }
+
     if let Ok(paths) = std::fs::read_dir(path) {
             let mut map = BTreeMap::<String, AttributeValue>::new();
             for path in paths {
@@ -357,7 +341,7 @@ fn read_dir(path: &str) -> Option<AttributeValue> {
                     ) {
                         map.insert(
                             path.to_string(),
-                            AttributeValue::Literal(Value::TextBuffer(dir_entry.path().display().to_string()))
+                            AttributeValue::Literal(Value::Bool(false))
                         );
 
                         // if let Ok(created) = metadata.created() {
