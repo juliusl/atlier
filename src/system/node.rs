@@ -547,7 +547,7 @@ impl<'a> App<'a> for NodeEditor {
             .resizable(true)
             .movable(true)
             .position([0.0, 0.0], imgui::Condition::Once)
-            .size([800.0, 600.0], imgui::Condition::Once)
+            .size([1920.0, 1080.0], imgui::Condition::Once)
     }
 
     fn show(&mut self, ui: &imgui::Ui) {
