@@ -15,7 +15,7 @@ pub use gui::GUIUpdate;
 pub use gui::ControlState;
 
 pub use node::NodeModule;
-pub use node::NodeApp;
+pub use node::NodeEditor;
 pub use node::NodeResource;
 pub use node::EditorResource;
 pub use node::AttributeValue;

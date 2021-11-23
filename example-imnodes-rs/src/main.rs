@@ -28,7 +28,7 @@ fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
-    let app = NodeApp::new("node-app".to_string()).module(
+    let app = NodeEditor::new("node-editor".to_string()).module(
         vec![
             FloatExpression::<Add>::resource(None),
             FloatExpression::<Subtract>::resource(None),
@@ -60,14 +60,14 @@ fn main() {
                 id: None,
              },
         ],
-        false,
+        true,
     );
 
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     let (event_loop, gui) =
-        new_gui_system::<NodeApp>("example-imnodes-specs", 1920.0, 1080.0, vec![app]);
+        new_gui_system::<NodeEditor>("example-imnodes-specs", 1920.0, 1080.0, vec![app]);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();

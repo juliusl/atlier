@@ -1,4 +1,4 @@
-use super::{Node, NodeEditor};
+use super::{NodeComponent, EditorComponent};
 use crate::system::Value;
 use imnodes::{InputPinId, OutputPinId};
 use std::{
@@ -409,7 +409,7 @@ impl NodeResource {
     }
 }
 
-impl Node for NodeResource {
+impl NodeComponent for NodeResource {
     fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
         let width = 300.0;
 
@@ -573,7 +573,7 @@ impl EditorResource {
     }
 }
 
-impl NodeEditor for EditorResource {
+impl EditorComponent for EditorResource {
     type State = NodeResource;
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,

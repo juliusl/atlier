@@ -22,7 +22,7 @@ pub trait NodeEventHandler {
     fn on_node_link_destroyed(&mut self, linid: imnodes::LinkId);
 }
 
-pub trait NodeEditor {
+pub trait EditorComponent {
     type State;
 
     fn setup(
@@ -39,7 +39,7 @@ pub trait NodeEditor {
     fn context_menu(&mut self, ui: &imgui::Ui);
 }
 
-pub trait Node {
+pub trait NodeComponent {
     fn setup(
         id_gen: &mut imnodes::IdentifierGenerator,
         resources: Vec<NodeResource>,
@@ -68,7 +68,7 @@ pub fn begin_context_menu<'a>(
     ui.begin_popup(popup_id)
 }
 
-impl<'a> NodeEditor for NodeModule {
+impl<'a> EditorComponent for NodeModule {
     type State = EditorResource;
 
     fn setup(
@@ -507,16 +507,16 @@ impl<'a> NodeEventHandler for NodeModule {
     }
 }
 
-pub struct NodeApp {
+pub struct NodeEditor {
     name: String,
     modules: Vec<(EditorContext, NodeModule)>,
     imnode: imnodes::Context,
 }
 
-impl NodeApp {
+impl NodeEditor {
     // Instantiates a new node editor window
     pub fn new(name: String) -> Self {
-        NodeApp {
+        NodeEditor {
             name: name,
             imnode: imnodes::Context::new(),
             modules: vec![],
@@ -541,7 +541,7 @@ impl NodeApp {
     }
 }
 
-impl<'a> App<'a> for NodeApp {
+impl<'a> App<'a> for NodeEditor {
     fn get_window(&self) -> imgui::Window<'static, String> {
         imgui::Window::new(self.name.clone())
             .resizable(true)
@@ -562,7 +562,7 @@ impl<'a> App<'a> for NodeApp {
                     self.modules.iter_mut().for_each(|(e, m)| {
                         let node_padding =
                             imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
-                        let resources = <NodeModule as NodeEditor>::setup(
+                        let resources = <NodeModule as EditorComponent>::setup(
                             &mut m.id_gen,
                             &e,
                             m.resources.to_vec(),
