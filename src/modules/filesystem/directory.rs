@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
 use crate::prelude::*;
-use imgui::*;
-
 pub struct ListDirectory;
 
 // List Directory reduces a filepath to a list of files

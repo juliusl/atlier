@@ -143,6 +143,7 @@ impl AttributeValue {
 #[derive(Clone)]
 pub enum NodeResource {
     Title(&'static str),
+    Extension(&'static str),
     Input(fn() -> &'static str, Option<imnodes::InputPinId>),
     Output(
         fn() -> &'static str,
@@ -182,6 +183,7 @@ impl Hash for NodeResource {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             NodeResource::Title(s) => s.hash(state),
+            NodeResource::Extension(s) => s.hash(state),
             NodeResource::Input(_, Some(input_id)) => input_id.hash(state),
             NodeResource::Output(_, _, Some(v), Some(output_id)) => {
                 output_id.hash(state);
@@ -361,6 +363,7 @@ impl NodeResource {
 impl NodeResource {
     pub fn name(&self) -> String {
         match self {
+            NodeResource::Extension(s)|
             NodeResource::Title(s) => s.to_string(),
             NodeResource::Input(s, _)
             | NodeResource::Output(s, ..)
@@ -372,6 +375,7 @@ impl NodeResource {
 
     pub fn debug_state(&self) -> String {
         match self {
+            NodeResource::Extension(_)|
             NodeResource::Title(_) => String::new(),
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
@@ -385,6 +389,7 @@ impl NodeResource {
 
     pub fn copy_blank(&self) -> Self {
         match self {
+            NodeResource::Extension(v) => NodeResource::Extension(v),
             NodeResource::Title(v) => NodeResource::Title(v),
             NodeResource::Input(n, _) => NodeResource::Input(*n, None),
             NodeResource::Output(n, o, Some(v), _) => {
@@ -412,6 +417,11 @@ impl Node for NodeResource {
 
         match self {
             NodeResource::Title(title) => node.add_titlebar(|| ui.text(format!("{}\t\t", title))),
+            NodeResource::Extension(extention_title) => {
+                // TODO: Ideally I can use a seperator here
+                ui.new_line();
+                ui.text(extention_title.to_string());
+            },
             NodeResource::Input(name, Some(id)) => {
                 let name = name();
                 ui.set_next_item_width(width);
@@ -524,6 +534,31 @@ pub enum EditorResource {
 }
 
 impl EditorResource {
+    pub fn merge(&self, ref other: EditorResource) -> EditorResource {
+        if let (EditorResource::Node { id, resources }, EditorResource::Node {..} ) = (self, other) {
+            let mut my_resources = resources.to_vec(); 
+            if let EditorResource::Node{ resources, .. } = other {
+                for r in resources.iter().filter_map(|f| match f {
+                    NodeResource::Title(t) => Some(NodeResource::Extension(t)),
+                    NodeResource::Extension(_)|
+                    NodeResource::Input(_, _) | 
+                    NodeResource::Output(_, _, _, _)|
+                    NodeResource::Attribute(_, _, _, _)|
+                    NodeResource::Reducer(_, _, _, _, _, _, _)|
+                    NodeResource::Action(_, _, _, _) => Some(f.copy_blank()),
+                }).map(|r| r.copy_blank()) {
+                    my_resources.push(r); 
+                }
+            }
+            EditorResource::Node {
+                resources: my_resources,
+                id: id.clone()
+            }
+        } else {
+            self.copy_blank(None)
+        }
+    }
+
     pub fn copy_blank(&self, new_id: Option<imnodes::NodeId>) -> EditorResource {
         match self {
             EditorResource::Node { resources, .. } => EditorResource::Node {

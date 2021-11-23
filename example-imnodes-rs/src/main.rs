@@ -37,6 +37,7 @@ fn main() {
             FloatExpression::<Subtract>::resource(None),
             FloatExpression::<Divide>::resource(None),
             FloatExpression::<Multiply>::resource(None),
+            EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
             ListDirectory::resource(None),
             EditorResource::Node {
                 resources: vec![
