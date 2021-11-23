@@ -156,14 +156,6 @@ pub enum NodeResource {
         Option<AttributeValue>,
         Option<imnodes::AttributeId>,
     ),
-    OutputWithAttribute(
-        fn() -> &'static str,
-        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
-        fn(state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>,
-        Option<AttributeValue>,
-        Option<imnodes::OutputPinId>,
-        Option<imnodes::AttributeId>,
-    ),
     Reducer(
         fn() -> &'static str,
         fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
@@ -198,11 +190,6 @@ impl Hash for NodeResource {
             NodeResource::Attribute(_, _, Some(v), Some(id)) => {
                 v.hash(state);
                 id.hash(state);
-            }
-            NodeResource::OutputWithAttribute(_, _, _, Some(v), Some(output_id), Some(attr_id)) => {
-                v.hash(state);
-                output_id.hash(state);
-                attr_id.hash(state)
             }
             NodeResource::Reducer(_, _, _, _, (hash, Some(v)), Some(output_id), Some(attr_id)) => {
                 hash.hash(state);
@@ -313,7 +300,7 @@ impl NodeResource {
         {
             for r in resources.iter().filter_map(|f| match f {
                 NodeResource::Output(_, _, Some(..), Some(output_id)) => Some(output_id),
-                NodeResource::OutputWithAttribute(_, _, _, Some(..), Some(output_id), ..) => {
+                NodeResource::Reducer(_, _, _, _, (_, Some(..)), Some(output_id), ..) => {
                     Some(output_id)
                 }
                 _ => None,
@@ -342,9 +329,6 @@ impl NodeResource {
                     attribute_dictionary.insert(name().to_string(), v.clone());
                 }
                 NodeResource::Output(name, _, Some(v), _) => {
-                    attribute_dictionary.insert(name().to_string(), v.clone());
-                }
-                NodeResource::OutputWithAttribute(name, _, _, Some(v), _, _) => {
                     attribute_dictionary.insert(name().to_string(), v.clone());
                 }
                 NodeResource::Input(name, Some(..)) => {
@@ -381,7 +365,6 @@ impl NodeResource {
             NodeResource::Input(s, _)
             | NodeResource::Output(s, ..)
             | NodeResource::Attribute(s, _, _, _)
-            | NodeResource::OutputWithAttribute(s, _, _, _, _, _)
             | NodeResource::Action(s, _, _, _)
             | NodeResource::Reducer(s, _, _, _, _, _, _) => s().to_string(),
         }
@@ -393,9 +376,6 @@ impl NodeResource {
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
-            NodeResource::OutputWithAttribute(_, _, _, v, o, a) => {
-                format!("{:#?} {:#?} {:#?}", v, o, a)
-            }
             NodeResource::Action(s, _, a, i) => format!("{:#?} {:#?} {:#?}", s(), a, i),
             NodeResource::Reducer(s, _, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
@@ -413,14 +393,11 @@ impl NodeResource {
             NodeResource::Attribute(n, d, Some(v), _) => {
                 NodeResource::Attribute(*n, *d, Some(v.copy_blank()), None)
             }
-            NodeResource::OutputWithAttribute(n, d, o, Some(v), _, _) => {
-                NodeResource::OutputWithAttribute(*n, *d, *o, Some(v.copy_blank()), None, None)
+            NodeResource::Reducer(n, d, m, r, (_, Some(v)), _, _) => {
+                NodeResource::Reducer(*n, *d, *m, *r, (0, Some(v.copy_blank())), None, None)
             }
             NodeResource::Output(n, o, v, _) => NodeResource::Output(*n, *o, v.clone(), None),
             NodeResource::Attribute(n, d, v, _) => NodeResource::Attribute(*n, *d, v.clone(), None),
-            NodeResource::OutputWithAttribute(n, d, o, v, _, _) => {
-                NodeResource::OutputWithAttribute(*n, *d, *o, v.clone(), None, None)
-            }
             NodeResource::Action(n, a, v, _) => NodeResource::Action(*n, *a, v.clone(), None),
             NodeResource::Reducer(n, d, m, r, v, _, _) => {
                 NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
@@ -454,24 +431,6 @@ impl Node for NodeResource {
                 node.attribute(id.clone(), || {
                     display(name.to_string(), width, &ui, attr);
                 });
-            }
-            NodeResource::OutputWithAttribute(
-                name,
-                display,
-                _,
-                attr,
-                Some(output_id),
-                Some(attr_id),
-            ) => {
-                if let Some(attr) = attr {
-                    let name = name();
-                    node.attribute(attr_id.clone(), || {
-                        display(name.to_string(), width, &ui, attr);
-                    });
-                    node.add_output(output_id.clone(), imnodes::PinShape::Circle, || {
-                        ui.text(name);
-                    });
-                }
             }
             NodeResource::Reducer(
                 name,
@@ -522,16 +481,6 @@ impl Node for NodeResource {
                 }
                 NodeResource::Output(name, vfn, v, None) => {
                     NodeResource::Output(name, vfn, v, Some(id_gen.next_output_pin()))
-                }
-                NodeResource::OutputWithAttribute(name, display, vfn, val, None, None) => {
-                    NodeResource::OutputWithAttribute(
-                        name,
-                        display,
-                        vfn,
-                        val,
-                        Some(id_gen.next_output_pin()),
-                        Some(id_gen.next_attribute()),
-                    )
                 }
                 NodeResource::Reducer(name, display, map, reduce, val, None, None) => {
                     NodeResource::Reducer(

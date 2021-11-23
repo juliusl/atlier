@@ -236,24 +236,6 @@ impl<'a> NodeEditor for NodeModule {
                                         );
                                         return next;
                                     }
-                                    NodeResource::OutputWithAttribute(
-                                        v,
-                                        display,
-                                        output,
-                                        None,
-                                        output_id,
-                                        attr_id,
-                                    ) => {
-                                        let next = NodeResource::OutputWithAttribute(
-                                            v.to_owned(),
-                                            display.to_owned(),
-                                            output.to_owned(),
-                                            output(state),
-                                            *output_id,
-                                            *attr_id,
-                                        );
-                                        return next;
-                                    }
                                     NodeResource::Reducer(
                                         name,
                                         display,
@@ -445,8 +427,9 @@ impl<'a> NodeEventHandler for NodeModule {
                                         None
                                     }
                                 }
-                                NodeResource::OutputWithAttribute(
+                                NodeResource::Reducer(
                                     start_node_name,
+                                    _,
                                     _,
                                     _,
                                     _,
