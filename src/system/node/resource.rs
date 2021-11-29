@@ -1,144 +1,7 @@
 use super::{NodeComponent, EditorComponent};
-use crate::system::Value;
+use crate::system::{Attribute, State};
 use imnodes::{InputPinId, OutputPinId};
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::{Hash, Hasher},
-};
-
-#[derive(Debug, Clone, Hash)]
-pub enum AttributeValue {
-    Literal(crate::system::Value),
-    Map(BTreeMap<String, AttributeValue>),
-    Empty,
-    Error(String),
-}
-
-impl Into<f32> for AttributeValue {
-    fn into(self) -> f32 {
-        match self {
-            AttributeValue::Literal(l) => match l {
-                Value::Float(f) => f,
-                Value::Int(i) => i as f32,
-                Value::FloatRange(f, _, _) => f,
-                Value::IntRange(i, _, _) => i as f32,
-                _ => 0.00,
-            },
-            _ => 0.00,
-        }
-    }
-}
-
-impl Into<i32> for AttributeValue {
-    fn into(self) -> i32 {
-        match self {
-            AttributeValue::Literal(l) => match l {
-                Value::Float(f) => f as i32,
-                Value::Int(i) => i,
-                Value::FloatRange(f, _, _) => f as i32,
-                Value::IntRange(i, _, _) => i,
-                _ => 0,
-            },
-            _ => 0,
-        }
-    }
-}
-
-impl AttributeValue {
-    pub fn copy_blank(&self) -> Self {
-        match self {
-            AttributeValue::Literal(l) => match l {
-                Value::Float(_) => Value::Float(f32::default()).into(),
-                Value::Int(_) => Value::Int(i32::default()).into(),
-                Value::Bool(_) => Value::Bool(bool::default()).into(),
-                Value::FloatRange(_, min, max) => {
-                    Value::FloatRange(f32::default(), *min, *max).into()
-                }
-                Value::IntRange(_, min, max) => Value::IntRange(i32::default(), *min, *max).into(),
-                Value::TextBuffer(_) => Value::TextBuffer(String::new()).into(),
-            },
-            AttributeValue::Map(m) => AttributeValue::Map(m.clone()),
-            AttributeValue::Error(msg) => AttributeValue::Error(msg.clone()),
-            AttributeValue::Empty => AttributeValue::Empty,
-        }
-    }
-
-    pub fn input(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
-        match value {
-            AttributeValue::Literal(v) => match v {
-                Value::TextBuffer(text) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputText::new(ui, label, text).build();
-                }
-                Value::Int(int) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputInt::new(ui, label, int).build();
-                }
-                Value::Float(float) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputFloat::new(ui, label, float).build();
-                }
-                Value::Bool(bool) => {
-                    ui.set_next_item_width(width);
-                    ui.checkbox(label, bool);
-                }
-                Value::FloatRange(v, min, max) => {
-                    ui.set_next_item_width(width);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-                Value::IntRange(v, min, max) => {
-                    ui.set_next_item_width(width);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-            },
-            AttributeValue::Map(map) => {
-                ui.spacing();
-                for (name, value) in map {
-                    let nested = format!("{}/{}", label, name);
-                    ui.spacing();
-                    AttributeValue::input(nested.to_string(), width, ui, value);
-                }
-            }
-            _ => (),
-        }
-    }
-
-    pub fn select(label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue) {
-        if let AttributeValue::Map(map) = value {
-            let selected = map.iter().find(|p| {
-                if let (_, AttributeValue::Literal(Value::Bool(selected))) = p {
-                    *selected
-                } else {
-                    false
-                }
-            });
-
-            let preview_value = if let Some(s) = selected { s.0 } else { "" };
-
-            ui.set_next_item_width(width);
-            if let Some(t) = imgui::ComboBox::new(label)
-                .preview_value(preview_value)
-                .begin(ui)
-            {
-                for (attr_name, attr) in map {
-                    if let AttributeValue::Literal(Value::Bool(selected)) = attr {
-                        if imgui::Selectable::new(attr_name)
-                            .selected(*selected)
-                            .build(ui)
-                        {
-                            ui.set_item_default_focus();
-                            ui.text(attr_name);
-                            *selected = true;
-                        } else {
-                            *selected = false;
-                        }
-                    }
-                }
-                t.end();
-            }
-        }
-    }
-}
+use std::{borrow::Borrow, collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
 
 #[derive(Clone)]
 pub enum NodeResource {
@@ -147,22 +10,22 @@ pub enum NodeResource {
     Input(fn() -> &'static str, Option<imnodes::InputPinId>),
     Output(
         fn() -> &'static str,
-        fn(state: &BTreeMap<String, AttributeValue>) -> Option<AttributeValue>,
-        Option<AttributeValue>,
+        fn(state: State) -> Option<Attribute>,
+        Option<Attribute>,        
         Option<imnodes::OutputPinId>,
     ),
     Attribute(
         fn() -> &'static str,
-        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
-        Option<AttributeValue>,
+        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut Attribute),
+        Option<Attribute>,
         Option<imnodes::AttributeId>,
     ),
     Reducer(
         fn() -> &'static str,
-        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut AttributeValue),
-        fn(state: &BTreeMap<String, AttributeValue>) -> (u64, Option<AttributeValue>),
-        fn(attribute: Option<AttributeValue>) -> Option<AttributeValue>,
-        (u64, Option<AttributeValue>),
+        fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut Attribute),
+        fn(state: State) -> (u64, Option<Attribute>),
+        fn(attribute: Option<Attribute>) -> Option<Attribute>,
+        (u64, Option<Attribute>),
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
     ),
@@ -172,11 +35,23 @@ pub enum NodeResource {
             name: String,
             width: f32,
             ui: &imgui::Ui,
-            state: &BTreeMap<String, AttributeValue>,
-        ) -> Option<AttributeValue>,
-        Option<AttributeValue>,
+            state: State,
+        ) -> Option<Attribute>,
+        Option<Attribute>,
         Option<imnodes::AttributeId>,
     ),
+    Event(
+        fn() -> &'static str,
+        fn(name:String, ui: &imgui::Ui) -> bool,
+        fn(state: State) -> Option<Attribute>,
+        Option<Attribute>,
+        Option<imnodes::OutputPinId>,
+    ),
+    Listener(
+        fn() -> &'static str,
+        fn(Option<Attribute>) -> Option<Attribute>,
+        Option<imnodes::InputPinId>
+    )
 }
 
 impl Hash for NodeResource {
@@ -199,6 +74,17 @@ impl Hash for NodeResource {
                 output_id.hash(state);
                 attr_id.hash(state);
             }
+            NodeResource::Action(_, _, Some(v), Some(attr_id)) => {
+                v.hash(state);
+                attr_id.hash(state);
+            },
+            NodeResource::Event(_, _, _, Some(b), Some(o)) => {
+                b.hash(state);
+                o.hash(state);
+            },
+            NodeResource::Listener(_, _, Some(i)) => {
+                i.hash(state);
+            },
             _ => {}
         }
     }
@@ -207,7 +93,7 @@ impl Hash for NodeResource {
 impl NodeResource {
     pub fn index_editor_state(
         resources: Vec<EditorResource>,
-    ) -> HashMap<imnodes::NodeId, AttributeValue> {
+    ) -> HashMap<imnodes::NodeId, Attribute> {
         // First get all of the links
         let links = resources.iter().filter_map(|r| {
             if let EditorResource::Link { start, end, .. } = r {
@@ -219,7 +105,7 @@ impl NodeResource {
 
         let mut inputid_to_nodeid_index: HashMap<InputPinId, imnodes::NodeId> = HashMap::new();
         let mut outputid_to_nodeid_index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
-        let mut nodeid_to_dictionary: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
+        let mut nodeid_to_dictionary: HashMap<imnodes::NodeId, Attribute> = HashMap::new();
         for editor_resource in resources.iter() {
             let index = NodeResource::index_node_inputs(editor_resource);
             inputid_to_nodeid_index.extend(index);
@@ -237,7 +123,7 @@ impl NodeResource {
             match match match outputid_to_nodeid_index.get(output_pin_id) {
                 // First check to see if we have the output node
                 Some(output_node_id) => match &nodeid_to_dictionary.get(output_node_id) {
-                    Some(AttributeValue::Map(output_values)) => Some(output_values),
+                    Some(Attribute::Map(output_values)) => Some(output_values),
                     _ => None,
                 },
                 None => None,
@@ -250,14 +136,14 @@ impl NodeResource {
                     // Then update the state of the input node and add that value to it's state at the entry of the connected input
                     match inputid_to_nodeid_index.get(input_pin_id) {
                         Some(input_node_id) => match &nodeid_to_dictionary.get(input_node_id) {
-                            Some(AttributeValue::Map(input_values)) => {
+                            Some(Attribute::Map(input_values)) => {
                                 let mut updated_input_values = input_values.clone();
                                 updated_input_values
                                     .insert(input_name.to_string(), output_val.clone());
 
                                 nodeid_to_dictionary.insert(
                                     *input_node_id,
-                                    AttributeValue::Map(updated_input_values),
+                                    Attribute::Map(updated_input_values),
                                 );
                             }
                             _ => (),
@@ -281,7 +167,8 @@ impl NodeResource {
         } = editor_resource
         {
             for r in resources.iter().filter_map(|f| match f {
-                NodeResource::Input(_, Some(input_id)) => Some(input_id),
+                NodeResource::Input(_, Some(input_id)) | 
+                NodeResource::Listener(_, _, Some(input_id)) => Some(input_id),
                 _ => None,
             }) {
                 index.insert(*r, *id);
@@ -301,8 +188,9 @@ impl NodeResource {
         } = editor_resource
         {
             for r in resources.iter().filter_map(|f| match f {
-                NodeResource::Output(_, _, Some(..), Some(output_id)) => Some(output_id),
-                NodeResource::Reducer(_, _, _, _, (_, Some(..)), Some(output_id), ..) => {
+                NodeResource::Output(_, _, Some(..), Some(output_id)) |
+                NodeResource::Reducer(_, _, _, _, (_, Some(..)), Some(output_id), ..) | 
+                NodeResource::Event(_, _, _, _, Some(output_id)) => {
                     Some(output_id)
                 }
                 _ => None,
@@ -317,9 +205,9 @@ impl NodeResource {
     // Returns a hashmap so that it can be merged with other maps
     fn index_node_state_to_map(
         editor_resource: &EditorResource,
-    ) -> HashMap<imnodes::NodeId, AttributeValue> {
-        let mut index: HashMap<imnodes::NodeId, AttributeValue> = HashMap::new();
-        let mut attribute_dictionary: BTreeMap<String, AttributeValue> = BTreeMap::new();
+    ) -> HashMap<imnodes::NodeId, Attribute> {
+        let mut index: HashMap<imnodes::NodeId, Attribute> = HashMap::new();
+        let mut attribute_dictionary: BTreeMap<String, Attribute> = BTreeMap::new();
 
         if let EditorResource::Node {
             id: Some(id),
@@ -327,25 +215,28 @@ impl NodeResource {
         } = editor_resource
         {
             resources.iter().for_each(|f| match f {
-                NodeResource::Attribute(name, _, Some(v), _) => {
+                NodeResource::Attribute(name, _, Some(v), _) | 
+                NodeResource::Event(name, _, _, Some(v), _)  |  
+                NodeResource::Output(name, _, Some(v), _) | 
+                NodeResource::Action(name, _, Some(v), _) |
+                NodeResource::Reducer(name, _, _, _, (_, Some(v)), _, _)
+                => {
                     attribute_dictionary.insert(name().to_string(), v.clone());
                 }
-                NodeResource::Output(name, _, Some(v), _) => {
-                    attribute_dictionary.insert(name().to_string(), v.clone());
+                NodeResource::Title(title) => { 
+                    attribute_dictionary.insert("title".to_string(), Attribute::from(title.to_string()));
                 }
-                NodeResource::Input(name, Some(..)) => {
-                    attribute_dictionary.insert(name().to_string(), AttributeValue::Empty);
+                NodeResource::Extension(ext_title) => {
+                    attribute_dictionary.insert("ext_title".to_string(), Attribute::from(ext_title.to_string()));
                 }
-                NodeResource::Action(name, _, Some(v), _) => {
-                    attribute_dictionary.insert(name().to_string(), v.clone());
-                }
-                NodeResource::Reducer(name, _, _, _, (_, Some(v)), _, _) => {
-                    attribute_dictionary.insert(name().to_string(), v.clone());
+
+                NodeResource::Input(name, Some(..)) |  NodeResource::Listener(name, _, Some(..)) => {
+                    attribute_dictionary.insert(name().to_string(), Attribute::Empty);
                 }
                 _ => {}
             });
 
-            index.insert(*id, AttributeValue::Map(attribute_dictionary));
+            index.insert(*id, Attribute::Map(attribute_dictionary));
         }
 
         index
@@ -368,7 +259,9 @@ impl NodeResource {
             | NodeResource::Output(s, ..)
             | NodeResource::Attribute(s, _, _, _)
             | NodeResource::Action(s, _, _, _)
-            | NodeResource::Reducer(s, _, _, _, _, _, _) => s().to_string(),
+            | NodeResource::Reducer(s, _, _, _, _, _, _)
+            | NodeResource::Event(s, _, _, _, _)
+            | NodeResource::Listener(s, _, _) => s().to_string(),
         }
     }
 
@@ -382,6 +275,8 @@ impl NodeResource {
             NodeResource::Reducer(s, _, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
             }
+            NodeResource::Event(s, _, _, v, o) => format!("{:#?} {:#?} {:#?}", s(), v, o),
+            NodeResource::Listener(s, _, i) => format!("{:#?} {:#?}", s(), i),
         }
     }
 
@@ -405,6 +300,8 @@ impl NodeResource {
             NodeResource::Reducer(n, d, m, r, v, _, _) => {
                 NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
             }
+            NodeResource::Event(n, e, t, v, _) => NodeResource::Event(*n, *e, *t, v.clone(), None),
+            NodeResource::Listener(n, i, _) => NodeResource::Listener(*n, *i, None),
         }
     }
 }
@@ -461,19 +358,29 @@ impl NodeComponent for NodeResource {
             NodeResource::Action(
                 name,
                 display_action,
-                Some(AttributeValue::Map(action_state)),
+                Some(Attribute::Map(action_state)),
                 Some(attr_id),
             ) => {
                 // An action maintains it's own state from when this node is initialzied
                 // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
                 node.attribute(*attr_id, || {
-                    let next = display_action(name().to_string(), width, &ui, &action_state);
-                    if let Some(AttributeValue::Map(next_state)) = next {
+                    let next = display_action(name().to_string(), width, &ui, State::from(action_state.borrow()));
+                    if let Some(Attribute::Map(next_state)) = next {
                         *action_state = next_state;
                     }
                 })
             }
-            _ => return,
+            NodeResource::Event(name, _, _, Some(..), Some(o)) => {
+                node.add_output(*o, imnodes::PinShape::Quad, ||{
+                    ui.text(name());
+                })
+            }
+            NodeResource::Listener(name, _, Some(i)) => {
+                node.add_input(*i, imnodes::PinShape::Quad, ||{
+                    ui.text(name());
+                })
+            }
+            _ => {}
         }
     }
 
@@ -507,8 +414,13 @@ impl NodeComponent for NodeResource {
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))
                 }
-                NodeResource::Title(title) => NodeResource::Title(title),
-                p => p.clone(),
+                NodeResource::Event(name, enable, send, v, None) => {
+                    NodeResource::Event(name, enable, send, v, Some(id_gen.next_output_pin()))
+                },
+                NodeResource::Listener(name, listen, None) => {
+                    NodeResource::Listener(name, listen, Some(id_gen.next_input_pin()))
+                },
+                _ => r.clone()
             };
 
             next.push(next_r);
@@ -529,6 +441,11 @@ pub enum EditorResource {
         start: (String, imnodes::OutputPinId),
         end: (String, imnodes::InputPinId),
     },
+    Message {
+        id: imnodes::LinkId,
+        start: (String, imnodes::OutputPinId),
+        end: (String, imnodes::InputPinId),
+    }
 }
 
 impl EditorResource {
@@ -546,7 +463,9 @@ impl EditorResource {
                         | NodeResource::Output(_, _, _, _)
                         | NodeResource::Attribute(_, _, _, _)
                         | NodeResource::Reducer(_, _, _, _, _, _, _)
-                        | NodeResource::Action(_, _, _, _) => Some(f.copy_blank()),
+                        | NodeResource::Action(_, _, _, _) 
+                        | NodeResource::Event(_, _, _, _, _)
+                        | NodeResource::Listener(_, _, _) => Some(f.copy_blank()),
                     })
                     .map(|r| r.copy_blank())
                 {

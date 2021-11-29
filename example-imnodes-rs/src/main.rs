@@ -4,64 +4,12 @@ use std::{collections::BTreeMap};
 use winit::event_loop::ControlFlow;
 
 fn main() {
-    let attr = NodeResource::Attribute(
-        || "test",
-        AttributeValue::input,
-        Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
-        None,
-    );
-
-    let attrstr = NodeResource::Attribute(
-        || "test-str",
-        AttributeValue::input,
-        Some(Value::TextBuffer(String::new()).into()),
-        None,
-    );
-
-    let attrfloat = NodeResource::Attribute(
-        || "test-float",
-        AttributeValue::input,
-        Some(Value::Float(0.0).into()),
-        None,
-    );
-
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
     let app = NodeEditor::new("node-editor".to_string()).module(
         vec![
-            FloatExpression::<Add>::resource(None),
-            FloatExpression::<Subtract>::resource(None),
-            FloatExpression::<Divide>::resource(None),
-            FloatExpression::<Multiply>::resource(None),
-            ListDirectory::resource(None),
-            Sine::resource(None),
-            Time::resource(None),
-            ColorEditor::resource(None),
-            EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
-            EditorResource::Node {
-                resources: vec![
-                    NodeResource::Title("hello"),
-                    attr,
-                    attrstr,
-                    attrfloat,
-                    NodeResource::Output(
-                        || "output",
-                        |_| Some(Value::Float(5.0).into()),
-                        None,
-                        None,
-                    ),
-                ],
-                id: None,
-            },
-            EditorResource::Node {
-                resources: Test {
-                    lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-                }
-                .node(),
-                id: None,
-             },
+            Test::resource(None),
         ],
         true,
     );
@@ -73,7 +21,8 @@ fn main() {
         new_gui_system::<NodeEditor>("example-imnodes-specs", 1920.0, 1080.0, vec![app]);
 
     // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
+    let mut dispatcher = DispatcherBuilder::new()
+        .with_thread_local(gui).build();
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -83,6 +32,11 @@ fn main() {
             event: winit::event::Event::Suspended,
         }))
         .build();
+
+    // let expr_entity = w
+    //     .create_entity()
+    //     .with(atlier::prelude::Resource::new(FloatExpression::<Add>::new()))
+    //     .build();
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
@@ -116,19 +70,23 @@ fn main() {
 }
 
 struct Test {
-    lhs: AttributeValue,
-    rhs: AttributeValue,
+    lhs: Attribute,
+    rhs: Attribute,
 }
 
-impl Test {
-    fn node(&mut self) -> Vec<NodeResource> {
-        let mut map: BTreeMap<String, AttributeValue> = BTreeMap::new();
+impl NodeExterior for Test {
+    fn title() -> &'static str {
+        "Read Directory"
+    }
+
+    fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
+        let mut map: BTreeMap<String, Attribute> = BTreeMap::new();
 
         map.insert("string".to_string(), Value::Bool(false).into());
         map.insert("int32".to_string(), Value::Bool(false).into());
         map.insert("float32".to_string(), Value::Bool(false).into());
 
-        let mut settings: BTreeMap<String, AttributeValue> = BTreeMap::new();
+        let mut settings: BTreeMap<String, Attribute> = BTreeMap::new();
 
         settings.insert(
             "name".to_string(),
@@ -137,7 +95,7 @@ impl Test {
         settings.insert("fields".to_string(), Value::Int(0).into());
         settings.insert("render".to_string(), Value::Bool(false).into());
 
-        let mut settings2: BTreeMap<String, AttributeValue> = BTreeMap::new();
+        let mut settings2: BTreeMap<String, Attribute> = BTreeMap::new();
 
         settings2.insert(
             "nested_name".to_string(),
@@ -146,85 +104,89 @@ impl Test {
         settings2.insert("nested_fields".to_string(), Value::Int(0).into());
         settings2.insert("nested_render".to_string(), Value::Bool(false).into());
 
-        settings.insert("nested".to_string(), AttributeValue::Map(settings2));
+        settings.insert("nested".to_string(), Attribute::Map(settings2));
 
-        vec![
-            NodeResource::Title("Read Directory"),
-            NodeResource::Attribute(
-                || "lhs",
-                AttributeValue::input,
-                Some(self.lhs.to_owned()),
-                None,
-            ),
-            NodeResource::Attribute(
-                || "rhs",
-                AttributeValue::input,
-                Some(self.rhs.to_owned()),
-                None,
-            ),
-            NodeResource::Attribute(
-                || "types",
-                AttributeValue::select,
-                Some(AttributeValue::Map(map)),
-                None,
-            ),
-            NodeResource::Attribute(
-                || "settings",
-                AttributeValue::input,
-                Some(AttributeValue::Map(settings)),
-                None,
-            ),
-            NodeResource::Attribute(
-                || "test_check_box",
-                AttributeValue::input,
-                Some(AttributeValue::Literal(Value::Bool(false))),
-                None,
-            ),
-            NodeResource::Output(
-                || "output",
-                |state| {
-                    if let (
-                        Some(AttributeValue::Literal(Value::FloatRange(lhs, ..))),
-                        Some(AttributeValue::Literal(Value::FloatRange(rhs, ..))),
-                    ) = (state.get("lhs"), state.get("rhs"))
-                    {
-                        return Some(Value::Float(lhs + rhs).into());
-                    }
-                    None
-                },
-                None,
-                None,
-            ),
-            // NodeResource::OutputWithAttribute(
-            //     || "output_with_attr",
-            //     |label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue| {
-            //         if let AttributeValue::Literal(Value::Float(f)) = value {
-            //             ui.set_next_item_width(width);
-            //             imgui::InputFloat::new(ui, label, f).read_only(true).build();
-            //         }
-            //     },
-            //     |state| {
-            //         if let Some(v) = state.get("output") {
-            //             return Some(v.clone());
-            //         }
-            //         None
-            //     },
-            //     None,
-            //     None,
-            //     None,
-            // ),
-            NodeResource::Attribute(
-                || "filepath",
-                AttributeValue::input,
-                Some(AttributeValue::Literal(Value::TextBuffer("./".to_string()))),
-                None,
-            ),
-            // NodeResource::Action(
-            //     || "internals",
-            //     display_internals,
-            //     None,
-            //     None,
-            // ), 
-        ]
+        EditorResource::Node {
+            resources:  vec![
+                NodeResource::Title(Self::title()),
+                NodeResource::Attribute(
+                    || "lhs",
+                    Self::input,
+                    Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
+                    None,
+                ),
+                NodeResource::Attribute(
+                    || "rhs",
+                    Self::input,
+                    Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
+                    None,
+                ),
+                NodeResource::Attribute(
+                    || "types",
+                    Self::select,
+                    Some(Attribute::Map(map)),
+                    None,
+                ),
+                NodeResource::Attribute(
+                    || "settings",
+                    Self::input,
+                    Some(Attribute::Map(settings)),
+                    None,
+                ),
+                NodeResource::Attribute(
+                    || "test_check_box",
+                    Self::input,
+                    Some(Attribute::Literal(Value::Bool(false))),
+                    None,
+                ),
+                NodeResource::Output(
+                    || "output",
+                    |state| {
+                        if let (
+                            Some(Attribute::Literal(Value::FloatRange(lhs, ..))),
+                            Some(Attribute::Literal(Value::FloatRange(rhs, ..))),
+                        ) = (state.get("lhs"), state.get("rhs"))
+                        {
+                            return Some(Value::Float(lhs + rhs).into());
+                        }
+                        None
+                    },
+                    None,
+                    None,
+                ),
+                // NodeResource::OutputWithAttribute(
+                //     || "output_with_attr",
+                //     |label: String, width: f32, ui: &imgui::Ui, value: &mut AttributeValue| {
+                //         if let AttributeValue::Literal(Value::Float(f)) = value {
+                //             ui.set_next_item_width(width);
+                //             imgui::InputFloat::new(ui, label, f).read_only(true).build();
+                //         }
+                //     },
+                //     |state| {
+                //         if let Some(v) = state.get("output") {
+                //             return Some(v.clone());
+                //         }
+                //         None
+                //     },
+                //     None,
+                //     None,
+                //     None,
+                // ),
+                NodeResource::Attribute(
+                    || "filepath",
+                    Self::input,
+                    Some(Attribute::Literal(Value::TextBuffer("./".to_string()))),
+                    None,
+                ),
+                // NodeResource::Action(
+                //     || "internals",
+                //     display_internals,
+                //     None,
+                //     None,
+                // ), 
+            ],
+            id: nodeid
+        }
     }
 }
+

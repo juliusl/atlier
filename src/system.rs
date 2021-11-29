@@ -2,13 +2,16 @@ mod window;
 mod gui;
 mod node;
 mod font;
+mod attribute;
 
 use window::WindowContext;
 use window::Hardware;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use imgui::FontSource;
+use std::collections::BTreeMap;
 use std::hash::Hash;
+use std::hash::Hasher;
 
 pub use gui::GUI;
 pub use gui::GUIUpdate;
@@ -18,7 +21,6 @@ pub use node::NodeModule;
 pub use node::NodeEditor;
 pub use node::NodeResource;
 pub use node::EditorResource;
-pub use node::AttributeValue;
 pub use node::expression;
 pub use node::NodeVisitor;
 pub use node::NodeInterior;
@@ -29,6 +31,9 @@ pub use node::expression::*;
 pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
+
+pub use attribute::Attribute;
+pub use attribute::Resource;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
@@ -43,6 +48,36 @@ pub enum Value {
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     TextBuffer(String),
+}
+
+#[derive(Clone, Hash)]
+pub struct State(BTreeMap<String, Attribute>);
+
+impl State {
+    pub fn get(&self, str: &'static str) -> Option<&Attribute> {
+        let map = &self.0;
+        map.get(str)
+    }
+
+    pub fn get_hash_code(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::default();
+
+        self.hash(&mut hasher);
+
+        hasher.finish()
+    }
+}
+
+impl Into<Attribute> for State {
+    fn into(self) -> Attribute {
+        Attribute::Map(self.0)
+    }
+}
+
+impl From<&BTreeMap<String, Attribute>> for State {
+    fn from(state: &BTreeMap<String, Attribute>) -> Self {
+        State(state.clone())
+    }
 }
 
 impl Hash for Value {
@@ -66,9 +101,9 @@ impl Hash for Value {
     }
 }
 
-impl Into<AttributeValue> for Value {
-    fn into(self) -> AttributeValue {
-        AttributeValue::Literal(self)
+impl Into<Attribute> for Value {
+    fn into(self) -> Attribute {
+        Attribute::Literal(self)
     }
 }
 

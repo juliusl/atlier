@@ -5,7 +5,6 @@ use imnodes::{editor, CoordinateSystem};
 use imnodes::{EditorContext, IdentifierGenerator};
 
 mod resource;
-pub use resource::AttributeValue;
 pub use resource::EditorResource;
 pub use resource::NodeResource;
 
@@ -15,7 +14,7 @@ pub use expression::*;
 mod visitor;
 pub use visitor::*;
 
-use super::App;
+use super::{App, Attribute, State};
 
 pub trait NodeEventHandler {
     fn on_node_link_created(&mut self, link: imnodes::Link);
@@ -54,7 +53,7 @@ pub struct NodeModule {
     resources: Vec<EditorResource>,
     id_gen: IdentifierGenerator,
     debug: (bool, Option<(imnodes::NodeId, imnodes::AttributeId)>),
-    state: (u64, Option<HashMap<imnodes::NodeId, AttributeValue>>),
+    state: (u64, Option<HashMap<imnodes::NodeId, Attribute>>),
 }
 
 pub fn begin_context_menu<'a>(
@@ -142,7 +141,7 @@ impl<'a> EditorComponent for NodeModule {
                                                 if let Some(node_id_token) =
                                                     imgui::TreeNode::new(tree_label).push(ui)
                                                 {
-                                                    if let AttributeValue::Map(map) = v {
+                                                    if let Attribute::Map(map) = v {
                                                         for (k, v) in map {
                                                             if let Some(dictionary_value_token) =
                                                                 imgui::TreeNode::new(k).push(ui)
@@ -225,13 +224,13 @@ impl<'a> EditorComponent for NodeModule {
                     .iter()
                     .map(|n| {
                         if let Some(state) = &self.state.1 {
-                            if let Some(AttributeValue::Map(state)) = state.get(nodeid) {
+                            if let Some(Attribute::Map(state)) = state.get(nodeid) {
                                 match n {
                                     NodeResource::Output(v, func, _, i) => {
                                         let next = NodeResource::Output(
                                             v.to_owned(),
                                             func.to_owned(),
-                                            func(state),
+                                            func(State::from(state)),
                                             *i,
                                         );
                                         return next;
@@ -245,7 +244,7 @@ impl<'a> EditorComponent for NodeModule {
                                         output_id,
                                         attr_id
                                     ) => {
-                                        let (next_hash_code, next_param) = map(state); 
+                                        let (next_hash_code, next_param) = map(State::from(state)); 
 
                                         let next =  if next_hash_code != *hash_code {
                                             let next_state = reduce(next_param);
@@ -275,14 +274,14 @@ impl<'a> EditorComponent for NodeModule {
                                         NodeResource::Action(
                                             v.to_owned(),
                                             a.to_owned(),
-                                            Some(AttributeValue::Map(state.clone())),
+                                            Some(Attribute::Map(state.clone())),
                                             *attr_id,
                                         )
                                     }
                                     NodeResource::Action(
                                         v,
                                         a,
-                                        Some(AttributeValue::Map(old)),
+                                        Some(Attribute::Map(old)),
                                         attr_id,
                                     ) => {
                                         let mut next = old.to_owned();
@@ -294,7 +293,7 @@ impl<'a> EditorComponent for NodeModule {
                                         NodeResource::Action(
                                             v.to_owned(),
                                             a.to_owned(),
-                                            Some(AttributeValue::Map(next)),
+                                            Some(Attribute::Map(next)),
                                             *attr_id,
                                         )
                                     }
@@ -338,6 +337,7 @@ impl<'a> EditorComponent for NodeModule {
     }
 
     fn context_menu(&mut self, ui: &imgui::Ui) {
+
         let window_padding = ui.push_style_var(imgui::StyleVar::WindowPadding([16.0, 8.0]));
         if let Some(popup_token) = begin_context_menu("editor_context_menu", ui) {
             let pos = ui.mouse_pos_on_opening_current_popup();

@@ -1,6 +1,6 @@
-use super::{AttributeValue, NodeResource, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
-use crate::{system::{EditorResource, Value}};
-use std::{collections::BTreeMap, marker::PhantomData};
+use super::{Attribute, NodeResource, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
+use crate::{system::{EditorResource, State, Value}};
+use std::marker::PhantomData;
 
 // An ExpressionFunc takes two parameters of the same type and returns a result of the same type
 pub trait ExpressionFunc2<T> {
@@ -20,6 +20,19 @@ where
     _p: PhantomData<V>,
 }
 
+impl <V> FloatExpression<V>
+where
+    V: ExpressionFunc2<f32>
+{
+    pub fn new() -> Self {
+        FloatExpression::<V> {
+            lhs: 0.00,
+            rhs: 0.00,
+            _p: PhantomData::default()
+        }
+    }
+}
+
 impl<V> NodeExterior for FloatExpression<V>  
 where
     V: ExpressionFunc2<f32> 
@@ -28,11 +41,10 @@ where
     fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
             EditorResource::Node {
                 resources: vec!(
-                    NodeResource::Title(V::title()()),
+                    NodeResource::Title(Self::title()),
                     NodeResource::Input(|| "lhs", None), 
                     NodeResource::Input(|| "rhs", None), 
                     NodeResource::Output(V::result_name(), |state| {
-                        // NodeInterior.accept(state) -> NodeVisitor.evaluate -> output 
                         FloatExpression::<V>::accept(state).evaluate() 
                     }, 
                     None,
@@ -41,17 +53,21 @@ where
                 id: nodeid
             }
     }
+
+    fn title() -> &'static str {
+        V::title()()
+    }
 }
 
 impl<'a, V> NodeInterior<'a> for FloatExpression<V> 
 where
     V: ExpressionFunc2<f32> 
 {
-    type Literal = (Option<&'a AttributeValue>, Option<&'a AttributeValue>); 
+    type Literal = (Option<&'a Attribute>, Option<&'a Attribute>); 
     type Visitor = FloatExpression<V>;
 
     // If this interior is implemented there are two inputs "lhs" and "rhs"
-    fn accept(state: &'a BTreeMap<String, AttributeValue>) -> Self::Visitor {
+    fn accept(state: State) -> Self::Visitor {
          Self::Visitor::from((state.get("lhs"),  state.get("rhs")))
     }
 }
@@ -61,8 +77,8 @@ where
     V: ExpressionFunc2<f32> 
 {
     // Evaluate the result of the visitor 
-    fn evaluate(&self) -> Option<AttributeValue> {
-        Some(AttributeValue::Literal(Value::Float(V::func()(self.lhs, self.rhs))))
+    fn evaluate(&self) -> Option<Attribute> {
+        Some(Attribute::Literal(Value::Float(V::func()(self.lhs, self.rhs))))
     }
 }
 
@@ -127,15 +143,15 @@ impl ExpressionFunc2<f32> for Multiply {
     }
 }
 
-impl<'a, V> From<(Option<&'a AttributeValue>, Option<&'a AttributeValue>)> for FloatExpression<V> 
+impl<'a, V> From<(Option<&'a Attribute>, Option<&'a Attribute>)> for FloatExpression<V> 
 where
     V: ExpressionFunc2<f32>
 {
-    fn from(tuple: (Option<&'a AttributeValue>, Option<&'a AttributeValue>)) -> Self {
+    fn from(tuple: (Option<&'a Attribute>, Option<&'a Attribute>)) -> Self {
        match tuple {
-           (Some(AttributeValue::Literal(Value::Float(lhs))), Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
-           (Some(AttributeValue::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: *lhs, rhs: 0.0, _p: PhantomData::default() },
-           (None, Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: *rhs, _p: PhantomData::default() },
+           (Some(Attribute::Literal(Value::Float(lhs))), Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
+           (Some(Attribute::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: *lhs, rhs: 0.0, _p: PhantomData::default() },
+           (None, Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: *rhs, _p: PhantomData::default() },
            _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
        }
     }

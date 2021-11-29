@@ -1,7 +1,30 @@
 use std::collections::BTreeMap;
+use specs::{Component, DenseVecStorage, Entities, Join, ReadStorage, System, WriteStorage};
 
 use crate::prelude::*;
+
 pub struct ListDirectory;
+
+impl Component for ListDirectory {
+    type Storage = DenseVecStorage<Self>;
+}
+
+impl<'a> System<'a> for ListDirectory {
+    type SystemData = (
+        Entities<'a>,
+        ReadStorage<'a, Resource<ListDirectory>>, 
+        WriteStorage<'a, Resource<ListDirectory>>);
+
+    fn run(&mut self, (e, existing, mut resources): Self::SystemData) {
+        (&e, existing.maybe()).join().for_each(|(e, r)| {
+            if let None = r {
+                if let Err(e) = resources.insert(e, Resource::new(ListDirectory{})) {
+                    println!("Error: {}", e);
+                }
+            }
+        }); 
+    }
+}
 
 // List Directory reduces a filepath to a list of files
 // and outputs which files are selected in a table
@@ -10,8 +33,12 @@ impl Reducer for ListDirectory {
         "filepath"
     }
 
-    fn reduce(attribute: Option<AttributeValue>) -> Option<AttributeValue> {
-        if let Some(AttributeValue::Literal(Value::TextBuffer(path))) = attribute {
+    fn result_name() -> &'static str {
+        "selected files"
+    }
+
+    fn reduce(attribute: Option<Attribute>) -> Option<Attribute> {
+        if let Some(Attribute::Literal(Value::TextBuffer(path))) = attribute {
             read_dir(&path)
         } else {
             None
@@ -21,18 +48,22 @@ impl Reducer for ListDirectory {
 
 // TODO: This trait could be derived
 impl NodeExterior for ListDirectory {
+    fn title() -> &'static str {
+        "List Directory"
+    }
+
     fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
         EditorResource::Node {
             resources: vec![
-                NodeResource::Title("List Directory"),
+                NodeResource::Title(Self::title()),
                 NodeResource::Attribute(
                     Self::param_name,
-                    AttributeValue::input,
-                    Some(AttributeValue::Literal(Value::TextBuffer("./".to_string()))),
+                    Self::input,
+                    Some(Attribute::Literal(Value::TextBuffer("./".to_string()))),
                     None,
                 ),
                 NodeResource::Reducer(
-                    || "selected files",
+                    Self::result_name,
                     Self::table_select, 
                     Self::map,
                     Self::reduce,
@@ -46,31 +77,31 @@ impl NodeExterior for ListDirectory {
     }
 }
 
-fn read_dir(path: &str) -> Option<AttributeValue> {
+fn read_dir(path: &str) -> Option<Attribute> {
     if let Ok(paths) = std::fs::read_dir(path) {
-            let mut map = BTreeMap::<String, AttributeValue>::new();
+            let mut map = BTreeMap::<String, Attribute>::new();
             for path in paths {
                 if let Ok(dir_entry) = path {
                     if let (Some(path), Ok(..)) = (
                         dir_entry.file_name().to_str(),
                         dir_entry.metadata(),
                     ) {
-                        let mut filedata = BTreeMap::<String, AttributeValue>::new();
+                        let mut filedata = BTreeMap::<String, Attribute>::new();
 
                         filedata.insert("selected".to_string(), 
-                        AttributeValue::Literal(Value::Bool(false)));
+                        Attribute::Literal(Value::Bool(false)));
 
                         filedata.insert("filepath".to_string(),
-                        AttributeValue::Literal(Value::TextBuffer(dir_entry.path().to_string_lossy().to_string())));
+                        Attribute::Literal(Value::TextBuffer(dir_entry.path().to_string_lossy().to_string())));
 
                         map.insert(
                            path.to_string(),
-                            AttributeValue::Map(filedata),
+                           Attribute::Map(filedata),
                         );
                     }
                 }
             }
-            Some(AttributeValue::Map(map))
+            Some(Attribute::Map(map))
         } else {
         None
     }

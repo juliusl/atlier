@@ -1,15 +1,19 @@
-use crate::system::{AttributeValue, EditorResource, NodeExterior, NodeResource, Reducer, Value};
+use crate::system::{Attribute, EditorResource, NodeExterior, NodeResource, Reducer, Value};
 
 pub struct Time;
 
 impl NodeExterior for Time {
+    fn title() -> &'static str {
+        "Time"
+    }
+
     fn resource(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource {
         EditorResource::Node {
             id: nodeid,
             resources: vec![
                 NodeResource::Title("Time"),
                 NodeResource::Output(
-                    ||"seconds from epoch",
+                    Time::result_name,
                     |_| {
                         let value = (std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
@@ -33,8 +37,12 @@ impl Reducer for Time {
         "enabled"
     }
 
-    fn reduce(attribute: Option<crate::system::AttributeValue>) -> Option<crate::system::AttributeValue> {
-        if let Some(AttributeValue::Literal(Value::Bool(enabled))) = attribute {
+    fn result_name() -> &'static str {
+        "seconds from epoch"
+    }
+
+    fn reduce(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
+        if let Some(Attribute::Literal(Value::Bool(enabled))) = attribute {
             if !enabled {
                 return None 
             }
