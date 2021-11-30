@@ -1,4 +1,5 @@
 use imgui::TableColumnSetup;
+use imnodes::CoordinateSystem;
 
 use crate::system::{State, Value};
 
@@ -30,15 +31,22 @@ pub trait NodeExterior {
         ui.button(name)
     }
 
-    fn action(_: String, _: f32, _: &imgui::Ui, _: State) -> Option<Attribute> {
-        None
+    fn action(_: String, _: f32, _: &imgui::Ui, _: State) {
     }
 
     // This is a helper function to create an item menu for this node
     fn menu_item(ui: &imgui::Ui, idgen: &mut imnodes::IdentifierGenerator, resources: &mut Vec<EditorResource>) {
         if imgui::MenuItem::new(Self::title()).build(ui) {
-            let next = Self::resource(Some(idgen.next_node()));
-            resources.push(next);
+            let pos = ui.mouse_pos_on_opening_current_popup();
+            let new_node = idgen.next_node();
+            resources
+                .push(Self::resource(Some(new_node)));
+
+            new_node.set_position(
+                pos[0],
+                pos[1],
+                CoordinateSystem::ScreenSpace,
+            );
         }
     }
 

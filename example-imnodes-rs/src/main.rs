@@ -1,4 +1,5 @@
 use atlier::prelude::*;
+use imgui::ColorEdit;
 use specs::prelude::*;
 use std::{collections::BTreeMap};
 use winit::event_loop::ControlFlow;
@@ -7,9 +8,12 @@ fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
-    let app = NodeEditor::new("node-editor".to_string()).module(
+    let app = NodeEditor::new("node-editor").module(
         vec![
             Test::resource(None),
+            FloatExpression::<Add>::resource(None),
+            ListDirectory::resource(None),
+            ColorEditor::resource(None)
         ],
         true,
     );

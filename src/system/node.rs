@@ -270,33 +270,6 @@ impl<'a> EditorComponent for NodeModule {
                                         };
                                         next
                                     }
-                                    NodeResource::Action(v, a, None, attr_id) => {
-                                        NodeResource::Action(
-                                            v.to_owned(),
-                                            a.to_owned(),
-                                            Some(Attribute::Map(state.clone())),
-                                            *attr_id,
-                                        )
-                                    }
-                                    NodeResource::Action(
-                                        v,
-                                        a,
-                                        Some(Attribute::Map(old)),
-                                        attr_id,
-                                    ) => {
-                                        let mut next = old.to_owned();
-
-                                        for (key, val) in state {
-                                            next.insert(key.clone(), val.clone());
-                                        }
-
-                                        NodeResource::Action(
-                                            v.to_owned(),
-                                            a.to_owned(),
-                                            Some(Attribute::Map(next)),
-                                            *attr_id,
-                                        )
-                                    }
                                     _ => return n.to_owned(),
                                 }
                             } else {
@@ -515,9 +488,9 @@ pub struct NodeEditor {
 
 impl NodeEditor {
     // Instantiates a new node editor window
-    pub fn new(name: String) -> Self {
+    pub fn new(name: &str) -> Self {
         NodeEditor {
-            name: name,
+            name: name.to_string(),
             imnode: imnodes::Context::new(),
             modules: vec![],
         }

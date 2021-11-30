@@ -38,7 +38,7 @@ impl NodeExterior for ColorEditor {
                     None,
                     None,
                 ),
-                NodeResource::Action(|| "display", Self::action, None, None),
+                NodeResource::Action(|| "display", Self::action, None),
             ],
         }
     }
@@ -48,19 +48,17 @@ impl NodeExterior for ColorEditor {
         width: f32,
         ui: &imgui::Ui,
         state: crate::system::State,
-    ) -> Option<Attribute> {
+    ) {
         if let (
             Some(Attribute::Literal(Value::Float(r))),
             Some(Attribute::Literal(Value::Float(g))),
             Some(Attribute::Literal(Value::Float(b))),
-        ) = (state.get("r"), state.get("g"), state.get("b"))
+        ) = (state.get("red"), state.get("green"), state.get("blue"))
         {
             let mut color = [*r, *g, *b, 1.0];
             ui.set_next_item_width(width);
-            imgui::ColorPicker::new(name, &mut color).build(ui);
+            imgui::ColorPicker::new(name, &mut color).build(ui); 
         }
-
-        Some(state.into())
     }
 
     fn title() -> &'static str {
@@ -125,7 +123,7 @@ impl Reducer for BlueChannel {
         "blue"
     }
     fn result_name() -> &'static str {
-        "blue_channe;"
+        "blue_channel"
     }
     fn reduce(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
         Self::reduce_rgba(attribute)

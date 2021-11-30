@@ -1,7 +1,7 @@
 use super::{NodeComponent, EditorComponent};
 use crate::system::{Attribute, State};
 use imnodes::{InputPinId, OutputPinId};
-use std::{borrow::Borrow, collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
+use std::{collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
 
 #[derive(Clone)]
 pub enum NodeResource {
@@ -36,8 +36,7 @@ pub enum NodeResource {
             width: f32,
             ui: &imgui::Ui,
             state: State,
-        ) -> Option<Attribute>,
-        Option<Attribute>,
+        ),
         Option<imnodes::AttributeId>,
     ),
     Event(
@@ -74,8 +73,7 @@ impl Hash for NodeResource {
                 output_id.hash(state);
                 attr_id.hash(state);
             }
-            NodeResource::Action(_, _, Some(v), Some(attr_id)) => {
-                v.hash(state);
+            NodeResource::Action(_, _, Some(attr_id)) => {
                 attr_id.hash(state);
             },
             NodeResource::Event(_, _, _, Some(b), Some(o)) => {
@@ -218,7 +216,6 @@ impl NodeResource {
                 NodeResource::Attribute(name, _, Some(v), _) | 
                 NodeResource::Event(name, _, _, Some(v), _)  |  
                 NodeResource::Output(name, _, Some(v), _) | 
-                NodeResource::Action(name, _, Some(v), _) |
                 NodeResource::Reducer(name, _, _, _, (_, Some(v)), _, _)
                 => {
                     attribute_dictionary.insert(name().to_string(), v.clone());
@@ -258,7 +255,7 @@ impl NodeResource {
             NodeResource::Input(s, _)
             | NodeResource::Output(s, ..)
             | NodeResource::Attribute(s, _, _, _)
-            | NodeResource::Action(s, _, _, _)
+            | NodeResource::Action(s,  _, _)
             | NodeResource::Reducer(s, _, _, _, _, _, _)
             | NodeResource::Event(s, _, _, _, _)
             | NodeResource::Listener(s, _, _) => s().to_string(),
@@ -271,7 +268,7 @@ impl NodeResource {
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
-            NodeResource::Action(s, _, a, i) => format!("{:#?} {:#?} {:#?}", s(), a, i),
+            NodeResource::Action(s, _, i) => format!("{:#?} {:#?}", s(), i),
             NodeResource::Reducer(s, _, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
             }
@@ -296,7 +293,7 @@ impl NodeResource {
             }
             NodeResource::Output(n, o, v, _) => NodeResource::Output(*n, *o, v.clone(), None),
             NodeResource::Attribute(n, d, v, _) => NodeResource::Attribute(*n, *d, v.clone(), None),
-            NodeResource::Action(n, a, v, _) => NodeResource::Action(*n, *a, v.clone(), None),
+            NodeResource::Action(n, a, _) => NodeResource::Action(*n, *a, None),
             NodeResource::Reducer(n, d, m, r, v, _, _) => {
                 NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
             }
@@ -358,17 +355,16 @@ impl NodeComponent for NodeResource {
             NodeResource::Action(
                 name,
                 display_action,
-                Some(Attribute::Map(action_state)),
                 Some(attr_id),
             ) => {
                 // An action maintains it's own state from when this node is initialzied
                 // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
-                node.attribute(*attr_id, || {
-                    let next = display_action(name().to_string(), width, &ui, State::from(action_state.borrow()));
-                    if let Some(Attribute::Map(next_state)) = next {
-                        *action_state = next_state;
-                    }
-                })
+                // node.attribute(*attr_id, || {
+                //     let next = display_action(name().to_string(), width, &ui, State::from(action_state.borrow()));
+                //     if let Some(Attribute::Map(next_state)) = next {
+                //         *action_state = next_state;
+                //     }
+                // })
             }
             NodeResource::Event(name, _, _, Some(..), Some(o)) => {
                 node.add_output(*o, imnodes::PinShape::Quad, ||{
@@ -408,8 +404,8 @@ impl NodeComponent for NodeResource {
                         Some(id_gen.next_attribute()),
                     )
                 }
-                NodeResource::Action(name, action, action_state, None) => {
-                    NodeResource::Action(name, action, action_state, Some(id_gen.next_attribute()))
+                NodeResource::Action(name, action, None) => {
+                    NodeResource::Action(name, action, Some(id_gen.next_attribute()))
                 }
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))
@@ -463,7 +459,7 @@ impl EditorResource {
                         | NodeResource::Output(_, _, _, _)
                         | NodeResource::Attribute(_, _, _, _)
                         | NodeResource::Reducer(_, _, _, _, _, _, _)
-                        | NodeResource::Action(_, _, _, _) 
+                        | NodeResource::Action(_, _, _) 
                         | NodeResource::Event(_, _, _, _, _)
                         | NodeResource::Listener(_, _, _) => Some(f.copy_blank()),
                     })
