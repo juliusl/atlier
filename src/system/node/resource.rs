@@ -37,6 +37,7 @@ pub enum NodeResource {
     Event(
         fn() -> &'static str,
         fn(name:String, ui: &imgui::Ui) -> bool,
+        fn(state: Option<State>) -> bool,
         fn(state: State) -> Option<Attribute>,
         Option<Attribute>,
         Option<imnodes::OutputPinId>,
@@ -71,7 +72,7 @@ impl Hash for NodeResource {
             NodeResource::Display(_, _, Some(attr_id)) => {
                 attr_id.hash(state);
             },
-            NodeResource::Event(_, _, _, Some(b), Some(o)) => {
+            NodeResource::Event(_, _, _, _, Some(b), Some(o)) => {
                 b.hash(state);
                 o.hash(state);
             },
@@ -84,9 +85,7 @@ impl Hash for NodeResource {
 }
 
 impl NodeResource {
-    pub fn index_editor_state(
-        resources: Vec<EditorResource>,
-    ) -> HashMap<imnodes::NodeId, Attribute> {
+    pub fn index_editor_state(resources: Vec<EditorResource>) -> HashMap<imnodes::NodeId, Attribute> {
         // First get all of the links
         let links = resources.iter().filter_map(|r| {
             if let EditorResource::Link { start, end, .. } = r {
@@ -100,8 +99,8 @@ impl NodeResource {
         let mut outputid_to_nodeid_index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
         let mut nodeid_to_dictionary: HashMap<imnodes::NodeId, Attribute> = HashMap::new();
         for editor_resource in resources.iter() {
-            let index = NodeResource::index_node_inputs(editor_resource);
-            inputid_to_nodeid_index.extend(index);
+            let inputs_index = NodeResource::index_node_inputs(editor_resource);
+            inputid_to_nodeid_index.extend(inputs_index);
 
             let output_index = NodeResource::index_node_outputs(editor_resource);
             outputid_to_nodeid_index.extend(output_index);
@@ -151,6 +150,7 @@ impl NodeResource {
         nodeid_to_dictionary
     }
 
+
     fn index_node_inputs(editor_resource: &EditorResource) -> HashMap<InputPinId, imnodes::NodeId> {
         let mut index: HashMap<InputPinId, imnodes::NodeId> = HashMap::new();
 
@@ -170,9 +170,8 @@ impl NodeResource {
         index
     }
 
-    fn index_node_outputs(
-        editor_resource: &EditorResource,
-    ) -> HashMap<OutputPinId, imnodes::NodeId> {
+
+    fn index_node_outputs( editor_resource: &EditorResource) -> HashMap<OutputPinId, imnodes::NodeId> {
         let mut index: HashMap<OutputPinId, imnodes::NodeId> = HashMap::new();
 
         if let EditorResource::Node {
@@ -183,7 +182,7 @@ impl NodeResource {
             for r in resources.iter().filter_map(|f| match f {
                 NodeResource::Output(_, _, Some(..), Some(output_id)) |
                 NodeResource::Reducer(_, _, _, _, (_, Some(..)), Some(output_id), ..) | 
-                NodeResource::Event(_, _, _, _, Some(output_id)) => {
+                NodeResource::Event(_, _, _, _, _, Some(output_id)) => {
                     Some(output_id)
                 }
                 _ => None,
@@ -196,9 +195,7 @@ impl NodeResource {
 
     // Indexes all of the attribute and output values to an AttributeVale::Dictionary
     // Returns a hashmap so that it can be merged with other maps
-    fn index_node_state_to_map(
-        editor_resource: &EditorResource,
-    ) -> HashMap<imnodes::NodeId, Attribute> {
+    fn index_node_state_to_map(editor_resource: &EditorResource) -> HashMap<imnodes::NodeId, Attribute> {
         let mut index: HashMap<imnodes::NodeId, Attribute> = HashMap::new();
         let mut attribute_dictionary: BTreeMap<String, Attribute> = BTreeMap::new();
 
@@ -209,7 +206,7 @@ impl NodeResource {
         {
             resources.iter().for_each(|f| match f {
                 NodeResource::Attribute(name, _, Some(v), _) | 
-                NodeResource::Event(name, _, _, Some(v), _)  |  
+                NodeResource::Event(name, _, _, _, Some(v), _)  |  
                 NodeResource::Output(name, _, Some(v), _) | 
                 NodeResource::Reducer(name, _, _, _, (_, Some(v)), _, _)
                 => {
@@ -252,7 +249,7 @@ impl NodeResource {
             | NodeResource::Attribute(s, _, _, _)
             | NodeResource::Display(s,  _, _)
             | NodeResource::Reducer(s, _, _, _, _, _, _)
-            | NodeResource::Event(s, _, _, _, _)
+            | NodeResource::Event(s, _, _, _, _, _)
             | NodeResource::Listener(s, _, _) => s().to_string(),
         }
     }
@@ -267,7 +264,7 @@ impl NodeResource {
             NodeResource::Reducer(s, _, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
             }
-            NodeResource::Event(s, _, _, v, o) => format!("{:#?} {:#?} {:#?}", s(), v, o),
+            NodeResource::Event(s, _, _, _, v, o) => format!("{:#?} {:#?} {:#?}", s(), v, o),
             NodeResource::Listener(s, _, i) => format!("{:#?} {:#?}", s(), i),
         }
     }
@@ -292,7 +289,7 @@ impl NodeResource {
             NodeResource::Reducer(n, d, m, r, v, _, _) => {
                 NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
             }
-            NodeResource::Event(n, e, t, v, _) => NodeResource::Event(*n, *e, *t, v.clone(), None),
+            NodeResource::Event(n, uie, e, t, v, _) => NodeResource::Event(*n,*uie, *e, *t, v.clone(), None),
             NodeResource::Listener(n, i, _) => NodeResource::Listener(*n, *i, None),
         }
     }
@@ -358,7 +355,7 @@ impl NodeComponent for NodeResource {
                     display_action(name().to_string(), width, &ui, state);
                 })
             }
-            NodeResource::Event(name, _, _, Some(..), Some(o)) => {
+            NodeResource::Event(name,_, _, _, Some(..), Some(o)) => {
                 node.add_output(*o, imnodes::PinShape::Quad, ||{
                     ui.text(name());
                 })
@@ -402,8 +399,8 @@ impl NodeComponent for NodeResource {
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))
                 }
-                NodeResource::Event(name, enable, send, v, None) => {
-                    NodeResource::Event(name, enable, send, v, Some(id_gen.next_output_pin()))
+                NodeResource::Event(name, ui_enable, enable, send, v, None) => {
+                    NodeResource::Event(name, ui_enable, enable, send, v, Some(id_gen.next_output_pin()))
                 },
                 NodeResource::Listener(name, listen, None) => {
                     NodeResource::Listener(name, listen, Some(id_gen.next_input_pin()))
@@ -452,7 +449,7 @@ impl EditorResource {
                         | NodeResource::Attribute(_, _, _, _)
                         | NodeResource::Reducer(_, _, _, _, _, _, _)
                         | NodeResource::Display(_, _, _) 
-                        | NodeResource::Event(_, _, _, _, _)
+                        | NodeResource::Event(_, _, _, _, _, _)
                         | NodeResource::Listener(_, _, _) => Some(f.copy_blank()),
                     })
                     .map(|r| r.copy_blank())
