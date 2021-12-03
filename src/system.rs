@@ -59,6 +59,7 @@ pub struct State(BTreeMap<String, Attribute>, Option<Vec<Update>>);
 pub enum Update {
     Insert(String, Attribute),
     Delete(String),
+    Merge(BTreeMap<String, Attribute>),
 }
 
 impl Default for State {
@@ -68,16 +69,19 @@ impl Default for State {
 }
 
 impl State {
-    pub fn get(&self, str: &'static str) -> Option<Attribute> {
+    /// `get` returns the latest version of the attribute
+    /// `get` will flatten all messages into a state before getting the next value. This has no side effects on the original collection.
+    pub fn get(&self, key: &'static str) -> Option<Attribute> {
         let State(map, ..) = self.next_state();
 
-        if let Some(v) = map.get(str) {
+        if let Some(v) = map.get(key) {
             Some(v.to_owned())
         } else {
             None
         }
     }
 
+    /// `get_hash_code` returns the current hash value for this map
     pub fn get_hash_code(&self) -> u64 {
         let mut hasher = std::collections::hash_map::DefaultHasher::default();
 
@@ -86,7 +90,7 @@ impl State {
         hasher.finish()
     }
 
-    // dispatch returns a new state with a new message
+    /// `dispatch` returns a new state with a new message
     pub fn dispatch(&self, message: Update) -> Self {
         match self {
             State(state, Some(updates)) => {
@@ -100,7 +104,12 @@ impl State {
         }
     }
 
-    // next_state flattens any/all messages into a new State 
+    /// `snapshot` returns a clone of state as-is w/o updates
+    pub fn snapshot(&self) -> Self {
+        State(self.0.clone(), None)
+    }
+
+    /// `next_state` flattens any/all updates and returns a new State 
     pub fn next_state(&self) -> Self {
          let next_state = match self {
             State(state, Some(updates)) => {
@@ -112,6 +121,11 @@ impl State {
                         }
                         Update::Delete(key) => {
                             next.remove(key);
+                        }
+                        Update::Merge(map) => {
+                            for (key, value) in map {
+                                next.insert(key.to_owned(), value.to_owned());
+                            }
                         }
                     }
                 );
@@ -125,25 +139,33 @@ impl State {
 
         State(next_state, None)
     }
-}
 
-#[test]
-fn test_dispatch() {
-    let state = State::default();
-    let old = state.get_hash_code();
-
-    let state = state
-        .dispatch(Update::Insert("test".to_string(), 10.0.into()))
-        .dispatch(Update::Insert("test".to_string(), 14.0.into()))
-        .next_state();
-
-    let new = state.get_hash_code();
-    assert_ne!(old, new); 
-
-    if let Some(v) = state.get("test") {
-        assert_eq!(14.0, v.to_owned().into());
+    /// `insert` is a helper method to dispatch an insert update
+    pub fn insert<V>(&self, key: &str, value: V) -> Self 
+    where 
+        V: Into<Attribute>
+    {
+        self.dispatch(Update::Insert(key.to_string(), value.into()))
     }
 
+    /// `merge` is a helper method to dispatch a merge update
+    pub fn merge<M>(&self, map: M) -> Self 
+    where
+        M: Into<BTreeMap<String, Attribute>>
+    {
+        self.dispatch(Update::Merge(map.into()))
+    }
+
+    /// `delete` is a helper method to dispatch a delete update
+    pub fn delete(&self, key: &str) -> Self {
+        self.dispatch(Update::Delete(key.to_string()))
+    }
+}
+
+impl Into<BTreeMap<String, Attribute>> for State {
+    fn into(self) -> BTreeMap<String, Attribute> {
+        self.next_state().0
+    }
 }
 
 impl Into<Attribute> for State {
@@ -156,6 +178,49 @@ impl From<&BTreeMap<String, Attribute>> for State {
     fn from(state: &BTreeMap<String, Attribute>) -> Self {
         State(state.clone(), None)
     }
+}
+
+#[test]
+fn test_dispatch() {
+    let state = State::default();
+    let old = state.get_hash_code();
+
+    let mut state = state
+        .insert("test", 10.0)
+        .insert("test", 14.0)
+        .next_state();
+
+    let new = state.get_hash_code();
+    assert_ne!(old, new); 
+
+    if let Some(v) = state.get("test") {
+        assert_eq!(14.0, v.to_owned().into());
+    }
+
+    state = state
+        .merge(State::default()
+        .insert("test", 17.0)
+        .insert("test2", 18.0))
+        .next_state();
+
+    let newest = state.get_hash_code();
+    assert_ne!(new, newest); 
+
+    if let Some(v) = state.get("test") {
+        assert_eq!(17.0, v.to_owned().into()); 
+    }
+
+    state = state
+        .merge(State::default()
+            .insert("test", 17.0)
+            .insert("test2", 18.0))
+        .next_state();
+
+    let latest = state.get_hash_code();
+    assert_eq!(newest, latest, "The hash code should not change after an inert merge");
+    
+    state = state.delete("test2"); 
+    assert!(state.get("test2").is_none())
 }
 
 impl Hash for Value {

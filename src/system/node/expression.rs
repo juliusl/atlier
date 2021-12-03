@@ -20,6 +20,29 @@ where
     _p: PhantomData<V>,
 }
 
+impl<V> From<State> for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32>
+{
+    fn from(state: State) -> Self {
+       match (state.get("lhs"), state.get("rhs")) {
+           (Some(lhs), Some(rhs)) => FloatExpression { lhs: lhs.into(), rhs: rhs.into(), _p: PhantomData::default() },
+           (Some(lhs), None) => FloatExpression { lhs: lhs.into(), rhs: 0.0, _p: PhantomData::default() },
+           (None, Some(rhs)) => FloatExpression { lhs: 0.0, rhs: rhs.into(), _p: PhantomData::default() },
+           _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
+       }
+    }
+}
+
+// Implementing this adds an accept fn() to accept and evaluate visitors
+impl<V> NodeInterior for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32> 
+{
+    type Visitor = FloatExpression<V>;
+}
+
+
 impl <V> Default for FloatExpression<V>
 where
     V: ExpressionFunc2<f32>
@@ -33,6 +56,7 @@ where
     }
 }
 
+// Implementing NodeExterior adds methods to return a EditorResource::Node
 impl<V> NodeExterior for FloatExpression<V>  
 where
     V: ExpressionFunc2<f32> 
@@ -53,25 +77,14 @@ where
     }
 }
 
+/// By Implmenting `Output`, `NodeVisitor`, and `NodeInterior` the EditorResource can be generated
+/// This allows you to implement several different implementations of generic type `V` without needing to reimplement EditorResource methods for each variant
 impl<V> Output for FloatExpression<V>  
 where
     V: ExpressionFunc2<f32> 
 {
     fn output_name() -> &'static str {
         V::result_name()()
-    }
-}
-
-impl<V> NodeInterior for FloatExpression<V> 
-where
-    V: ExpressionFunc2<f32> 
-{
-    type Literal = (Option<Attribute>, Option<Attribute>); 
-    type Visitor = FloatExpression<V>;
-
-    // If this interior is implemented there are two inputs "lhs" and "rhs"
-    fn accept(state: State) -> Self::Visitor {
-         Self::Visitor::from((state.get("lhs"),  state.get("rhs")))
     }
 }
 
@@ -85,7 +98,7 @@ where
     }
 }
 
-// TODO: This is in a good spot to be converted to a derive macro  
+/// The `Add` node can output the sum of the `lhs` and `rhs` inputs
 pub struct Add;
 impl ExpressionFunc2<f32> for Add {
     fn title() -> fn()->&'static str {
@@ -101,6 +114,7 @@ impl ExpressionFunc2<f32> for Add {
     }
 }
 
+/// The `Divide` node can output the quotient of the `lhs` and `rhs` inputs
 pub struct Divide; 
 impl ExpressionFunc2<f32> for Divide {
     fn title() -> fn()->&'static str {
@@ -116,6 +130,7 @@ impl ExpressionFunc2<f32> for Divide {
     }
 }
 
+/// The `Subtract` node can output the difference of the `lhs` and `rhs` inputs
 pub struct Subtract;
 impl ExpressionFunc2<f32> for Subtract {
     fn title() -> fn()->&'static str {
@@ -131,6 +146,7 @@ impl ExpressionFunc2<f32> for Subtract {
     }
 }
 
+/// The `Multiply` node can output the product of the `lhs` and `rhs` inputs
 pub struct Multiply;
 impl ExpressionFunc2<f32> for Multiply {
     fn title() -> fn()->&'static str {
@@ -143,19 +159,5 @@ impl ExpressionFunc2<f32> for Multiply {
 
     fn func() -> fn(f32, f32) -> f32 {
         |l, r| l*r
-    }
-}
-
-impl<V> From<(Option<Attribute>, Option<Attribute>)> for FloatExpression<V> 
-where
-    V: ExpressionFunc2<f32>
-{
-    fn from(tuple: (Option<Attribute>, Option<Attribute>)) -> Self {
-       match tuple {
-           (Some(Attribute::Literal(Value::Float(lhs))), Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: lhs, rhs: rhs, _p: PhantomData::default() },
-           (Some(Attribute::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: lhs, rhs: 0.0, _p: PhantomData::default() },
-           (None, Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: rhs, _p: PhantomData::default() },
-           _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
-       }
     }
 }

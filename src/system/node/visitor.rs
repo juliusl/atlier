@@ -8,11 +8,12 @@ use super::{Attribute, EditorResource, NodeResource};
 // These are traits to help define different types of nodes that can be used from the editor
 
 pub trait NodeInterior {
-    type Literal;
-    type Visitor: NodeVisitor + From<Self::Literal>;
+    type Visitor: NodeVisitor + From<State>;
 
     // Accept a visitor to convert the current interior state
-    fn accept(state: State) -> Self::Visitor;
+    fn accept(state: State) -> Self::Visitor {
+        Self::Visitor::from(state)
+   }
 }
 
 pub trait NodeVisitor {

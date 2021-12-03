@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use crate::prelude::*;
 
 pub struct ListDirectory;
@@ -45,29 +43,22 @@ impl Reducer for ListDirectory {
 
 fn read_dir(path: &str) -> Option<Attribute> {
     if let Ok(paths) = std::fs::read_dir(path) {
-            let mut map = BTreeMap::<String, Attribute>::new();
+            let mut map = State::default();
             for path in paths {
                 if let Ok(dir_entry) = path {
                     if let (Some(path), Ok(..)) = (
                         dir_entry.file_name().to_str(),
                         dir_entry.metadata(),
                     ) {
-                        let mut filedata = BTreeMap::<String, Attribute>::new();
+                        let filedata = State::default()
+                            .insert("selected", false)
+                            .insert("filepath", dir_entry.path().to_string_lossy().to_string());
 
-                        filedata.insert("selected".to_string(), 
-                        Attribute::Literal(Value::Bool(false)));
-
-                        filedata.insert("filepath".to_string(),
-                        Attribute::Literal(Value::TextBuffer(dir_entry.path().to_string_lossy().to_string())));
-
-                        map.insert(
-                           path.to_string(),
-                           Attribute::Map(filedata),
-                        );
+                        map = map.insert(path, filedata);
                     }
                 }
             }
-            Some(Attribute::Map(map))
+            Some(map.into())
         } else {
         None
     }
