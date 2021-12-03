@@ -63,9 +63,8 @@ impl Hash for NodeResource {
                 v.hash(state);
                 id.hash(state);
             }
-            NodeResource::Reducer(_, _, _, _, (hash, Some(v)), Some(output_id), Some(attr_id)) => {
+            NodeResource::Reducer(_, _, _, _, (hash, Some(..)), Some(output_id), Some(attr_id)) => {
                 hash.hash(state);
-                v.hash(state);
                 output_id.hash(state);
                 attr_id.hash(state);
             }

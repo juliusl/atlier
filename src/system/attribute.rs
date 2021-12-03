@@ -1,61 +1,6 @@
-use std::collections::BTreeMap;
-use specs::{Component, VecStorage};
+use std::{collections::BTreeMap, any::Any};
 
-use super::{NodeExterior, Reducer, Value};
-
-pub struct Resource<T>
-where 
-    T: NodeExterior + 'static + Sync
-{    
-    state: BTreeMap<String, Attribute>,
-    exterior: Option<T>
-}
-
-impl<T> Default for Resource<T> 
-where 
-    T: NodeExterior + 'static + Sync
-{
-    fn default() -> Self {
-        Self { state: BTreeMap::new(), exterior: None }
-    }
-}
-
-impl<T> Resource<T> 
-where 
-    T: NodeExterior + 'static + Sync
-{
-    pub fn new(t: T) -> Self {
-        Self {
-            exterior: Some(t),
-            state: BTreeMap::new()
-        }
-    }
-}
-
-impl<T> NodeExterior for Resource<T>
-where 
-    T: NodeExterior + 'static + Sync + Send + Reducer
-{
-    fn editor_resource(nodeid: Option<imnodes::NodeId>) -> super::EditorResource 
-    {
-        T::editor_resource(nodeid)
-    }
-
-    fn title() -> &'static str {
-        T::title()
-    }
-
-    fn group_name() -> &'static str {
-        T::group_name()
-    }
-}
-
-impl<T> Component for Resource<T>
-where 
-    T: NodeExterior + 'static + Sync + Send
-{
-    type Storage = VecStorage<Self>;
-}
+use super::{Value, State, NodeExterior, EditorResource, NodeResource, Reducer};
 
 #[derive(Debug, Clone, Hash)]
 pub enum Attribute {
@@ -63,6 +8,53 @@ pub enum Attribute {
     Map(BTreeMap<String, Attribute>),
     Empty,
     Error(String),
+}
+
+impl Into<EditorResource> for Attribute {
+    fn into(self) -> EditorResource {
+        EditorResource::Node {
+            resources: vec![
+                NodeResource::Title(Self::title()),
+                self.into(),
+                <Attribute as Reducer>::resource(),
+            ],
+            id: None
+        }
+    }
+}
+
+impl Into<NodeResource> for Attribute {
+    fn into(self) -> NodeResource {
+        NodeResource::Attribute(
+            Self::param_name, 
+            Self::input, 
+            Some(self), 
+            None)
+    }
+}
+
+impl NodeExterior for Attribute {
+    fn title() -> &'static str {
+        "Attribute"
+    }
+
+    fn group_name() -> &'static str {
+        "System"
+    }
+}
+
+impl Reducer for Attribute {
+    fn result_name() -> &'static str {
+        "attribute_value"
+    }
+
+    fn param_name() -> &'static str {
+        "attribute"
+    }
+
+    fn reduce(attribute: Option<Attribute>) -> Option<Attribute> {
+        attribute
+    }
 }
 
 impl Into<f32> for Attribute {
@@ -90,6 +82,12 @@ impl Into<f64> for Attribute {
 impl From<f32> for Attribute {
     fn from(f: f32) -> Self {
         Attribute::Literal(Value::Float(f))
+    }
+}
+
+impl From<f64> for Attribute {
+    fn from(f: f64) -> Self {
+        Attribute::Literal(Value::Float(f as f32))
     }
 }
 
@@ -123,14 +121,25 @@ impl From<String> for Attribute {
     }
 }
 
+impl From<&str> for Attribute {
+    fn from(s: &str) -> Self {
+        Self::from(s.to_string())
+    }
+}
+
 impl From<&BTreeMap<String, Attribute>> for Attribute {
     fn from(m: &BTreeMap<String, Attribute>) -> Self {
         Attribute::Map(m.to_owned())
     }
 }
 
-impl Attribute {
+impl From<State> for Attribute {
+    fn from(s: State) -> Self {
+        Attribute::Map(s.into())
+    }
+}
 
+impl Attribute {
     // Get a blank copy
     pub fn copy_blank(&self) -> Self {
         match self {

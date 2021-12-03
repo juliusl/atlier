@@ -107,6 +107,92 @@ pub trait NodeExterior {
         ui.button(name)
     }
 
+    fn noop_display(_: String, _: f32, _: &imgui::Ui, _: &mut Attribute) {}
+
+    fn input(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        match value {
+            Attribute::Literal(v) => match v {
+                Value::TextBuffer(text) => {
+                    ui.set_next_item_width(width);
+                    imgui::InputText::new(ui, label, text).build();
+                }
+                Value::Int(int) => {
+                    ui.set_next_item_width(width);
+                    imgui::InputInt::new(ui, label, int).build();
+                }
+                Value::Float(float) => {
+                    ui.set_next_item_width(width);
+                    imgui::InputFloat::new(ui, label, float).build();
+                }
+                Value::Bool(bool) => {
+                    ui.set_next_item_width(width);
+                    ui.checkbox(label, bool);
+                }
+                Value::FloatRange(v, min, max) => {
+                    ui.set_next_item_width(width);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
+                Value::IntRange(v, min, max) => {
+                    ui.set_next_item_width(width);
+                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
+                }
+            },
+            Attribute::Map(map) => {
+                ui.spacing();
+                for (name, value) in map {
+                    let nested = format!("{}/{}", label, name);
+                    ui.spacing();
+                    Self::input(nested.to_string(), width, ui, value);
+                }
+            }
+            _ => (),
+        }
+    }
+
+    fn table_select(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute)
+    where
+        Self: Reducer
+    {
+        if let Attribute::Map(map) = value {
+            if let Some(table_token) = ui.begin_table_header_with_sizing(
+                label,
+                [
+                    TableColumnSetup::new(Self::param_name()),
+                    TableColumnSetup::new(""),
+                ],
+                imgui::TableFlags::RESIZABLE | imgui::TableFlags::SCROLL_Y,
+                [width, 300.0],
+                0.00,
+            ) {
+                ui.spacing();
+                for (key, value) in map {
+                    ui.table_next_row();
+                    ui.table_next_column();
+                    if let Attribute::Literal(Value::Bool(selected)) = value {
+                        if imgui::Selectable::new(key)
+                            .span_all_columns(true)
+                            .build_with_ref(ui, selected)
+                        {
+                            ui.set_item_default_focus();
+                        }
+                    } else if let Attribute::Map(map) = value {
+                        if let Some(Attribute::Literal(Value::Bool(selected))) =
+                            map.get_mut("selected")
+                        {
+                            if imgui::Selectable::new(key)
+                                .span_all_columns(true)
+                                .build_with_ref(ui, selected)
+                            {
+                                ui.set_item_default_focus();
+                            }
+                        }
+                    }
+                }
+                table_token.end();
+            }
+        }
+    }
+
     // This is a helper function to create an item menu for this node
     fn menu_item(
         ui: &imgui::Ui,
@@ -205,7 +291,10 @@ pub trait Reducer {
         NodeResource::Input(Self::param_name, None)
     }
 
-    fn resource_table_select() -> NodeResource {
+    fn resource_table_select() -> NodeResource 
+    where
+        Self: NodeExterior
+    {
         NodeResource::Reducer(
             Self::result_name,
             Self::table_select,
@@ -217,10 +306,28 @@ pub trait Reducer {
         )
     }
 
-    fn resource_input() -> NodeResource {
+    fn resource_input() -> NodeResource 
+    where
+        Self: NodeExterior
+    {
         NodeResource::Reducer(
             Self::result_name,
             Self::input,
+            Self::map,
+            Self::reduce,
+            (0, None),
+            None,
+            None,
+        )
+    }
+
+    fn resource() -> NodeResource 
+    where
+        Self: NodeExterior
+    {
+        NodeResource::Reducer(
+            Self::result_name,
+            Self::noop_display,
             Self::map,
             Self::reduce,
             (0, None),
@@ -246,87 +353,6 @@ pub trait Reducer {
             (hash_code, Some(v))
         } else {
             (0, None)
-        }
-    }
-
-    fn input(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
-        match value {
-            Attribute::Literal(v) => match v {
-                Value::TextBuffer(text) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputText::new(ui, label, text).build();
-                }
-                Value::Int(int) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputInt::new(ui, label, int).build();
-                }
-                Value::Float(float) => {
-                    ui.set_next_item_width(width);
-                    imgui::InputFloat::new(ui, label, float).build();
-                }
-                Value::Bool(bool) => {
-                    ui.set_next_item_width(width);
-                    ui.checkbox(label, bool);
-                }
-                Value::FloatRange(v, min, max) => {
-                    ui.set_next_item_width(width);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-                Value::IntRange(v, min, max) => {
-                    ui.set_next_item_width(width);
-                    imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
-                }
-            },
-            Attribute::Map(map) => {
-                ui.spacing();
-                for (name, value) in map {
-                    let nested = format!("{}/{}", label, name);
-                    ui.spacing();
-                    Self::input(nested.to_string(), width, ui, value);
-                }
-            }
-            _ => (),
-        }
-    }
-
-    fn table_select(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
-        if let Attribute::Map(map) = value {
-            if let Some(table_token) = ui.begin_table_header_with_sizing(
-                label,
-                [
-                    TableColumnSetup::new(Self::param_name()),
-                    TableColumnSetup::new(""),
-                ],
-                imgui::TableFlags::RESIZABLE | imgui::TableFlags::SCROLL_Y,
-                [width, 300.0],
-                0.00,
-            ) {
-                ui.spacing();
-                for (key, value) in map {
-                    ui.table_next_row();
-                    ui.table_next_column();
-                    if let Attribute::Literal(Value::Bool(selected)) = value {
-                        if imgui::Selectable::new(key)
-                            .span_all_columns(true)
-                            .build_with_ref(ui, selected)
-                        {
-                            ui.set_item_default_focus();
-                        }
-                    } else if let Attribute::Map(map) = value {
-                        if let Some(Attribute::Literal(Value::Bool(selected))) =
-                            map.get_mut("selected")
-                        {
-                            if imgui::Selectable::new(key)
-                                .span_all_columns(true)
-                                .build_with_ref(ui, selected)
-                            {
-                                ui.set_item_default_focus();
-                            }
-                        }
-                    }
-                }
-                table_token.end();
-            }
         }
     }
 }

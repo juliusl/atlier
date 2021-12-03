@@ -63,6 +63,16 @@ trait ChannelReducer : Reducer {
 #[derive(Clone, Copy)]
 struct RedChannel;
 
+impl NodeExterior for RedChannel {
+    fn title() -> &'static str {
+        "Red Channel"
+    }
+
+    fn group_name() -> &'static str {
+        "Graphics"
+    }
+}
+
 impl ChannelReducer for RedChannel {}
 impl Reducer for RedChannel {
     fn param_name() -> &'static str {
@@ -77,6 +87,15 @@ impl Reducer for RedChannel {
 }
 
 struct GreenChannel;
+impl NodeExterior for GreenChannel {
+    fn title() -> &'static str {
+        "Green Channel"
+    }
+
+    fn group_name() -> &'static str {
+        "Graphics"
+    }
+}
 impl ChannelReducer for GreenChannel{}
 impl Reducer for GreenChannel {
     fn param_name() -> &'static str {
@@ -91,6 +110,16 @@ impl Reducer for GreenChannel {
 }
 
 struct BlueChannel;
+impl NodeExterior for BlueChannel {
+    fn title() -> &'static str {
+        "Blue Channel"
+    }
+
+    fn group_name() -> &'static str {
+        "Graphics"
+    }
+}
+
 impl ChannelReducer for BlueChannel {}
 impl Reducer for BlueChannel {
     fn param_name() -> &'static str {

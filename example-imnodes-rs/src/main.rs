@@ -6,12 +6,22 @@ fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
+
+    let color_editor =   Attribute::from(
+        State::default()
+            .insert("blue", [0.00, 0.00, 255.00])
+            .insert("green", [0.00, 0.00, 255.00])
+            .insert("red", [0.00, 0.00, 255.00])
+            .next_state()
+    );
+
     let app = NodeEditor::new("node-editor").module(
         vec![
             FloatExpression::<Add>::output_node(None),
-            ListDirectory::reducer_node(None, true),
-            ColorEditor::editor_resource(None),
-            ColorEditor::display_node(None),
+            //ListDirectory::reducer_node(None, true),
+            color_editor.into(),
+            //ColorEditor::editor_resource(None),
+            //ColorEditor::display_node(None),
         ],
         true,
     );

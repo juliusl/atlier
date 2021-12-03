@@ -401,11 +401,11 @@ impl<'a> EditorComponent for NodeModule {
                                             self.resources
                                                 .push(editor_resource.copy_blank(Some(new_node)));
 
-                                            new_node.set_position(
-                                                pos[0],
-                                                pos[1],
-                                                CoordinateSystem::ScreenSpace,
-                                            );
+                                            // new_node.set_position(
+                                            //     pos[0],
+                                            //     pos[1],
+                                            //     CoordinateSystem::ScreenSpace,
+                                            // );
                                         }
                                         _ => (),
                                     }
@@ -444,7 +444,7 @@ impl<'a> NodeEventHandler for NodeModule {
             }
         });
 
-        if !exists && craeated_from_snap {
+        if !exists && !craeated_from_snap {
             let linkid = self.id_gen.next_link();
 
             if let (Some(output_name), Some(input_name)) = (

@@ -35,7 +35,6 @@ pub use font::monaco;
 pub use font::segoe_ui;
 
 pub use attribute::Attribute;
-pub use attribute::Resource;
 
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
@@ -165,12 +164,6 @@ impl State {
 impl Into<BTreeMap<String, Attribute>> for State {
     fn into(self) -> BTreeMap<String, Attribute> {
         self.next_state().0
-    }
-}
-
-impl Into<Attribute> for State {
-    fn into(self) -> Attribute {
-        Attribute::Map(self.0)
     }
 }
 
