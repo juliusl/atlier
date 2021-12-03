@@ -26,6 +26,8 @@ pub use node::NodeVisitor;
 pub use node::NodeInterior;
 pub use node::NodeExterior;
 pub use node::Reducer;
+pub use node::Display;
+pub use node::Output;
 pub use node::expression::*;
 
 pub use font::cascadia_code;
@@ -51,12 +53,29 @@ pub enum Value {
 }
 
 #[derive(Clone, Hash)]
-pub struct State(BTreeMap<String, Attribute>);
+pub struct State(BTreeMap<String, Attribute>, Option<Vec<Update>>);
+
+#[derive(Clone, Hash)]
+pub enum Update {
+    Insert(String, Attribute),
+    Delete(String),
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self(BTreeMap::default(), None)
+    }
+}
 
 impl State {
-    pub fn get(&self, str: &'static str) -> Option<&Attribute> {
-        let map = &self.0;
-        map.get(str)
+    pub fn get(&self, str: &'static str) -> Option<Attribute> {
+        let State(map, ..) = self.next_state();
+
+        if let Some(v) = map.get(str) {
+            Some(v.to_owned())
+        } else {
+            None
+        }
     }
 
     pub fn get_hash_code(&self) -> u64 {
@@ -66,6 +85,65 @@ impl State {
 
         hasher.finish()
     }
+
+    // dispatch returns a new state with a new message
+    pub fn dispatch(&self, message: Update) -> Self {
+        match self {
+            State(state, Some(updates)) => {
+                let mut next = updates.clone();
+                next.push(message);
+                State(state.clone(), Some(next))
+            }
+            State(state, None) => {
+                State(state.clone(), Some(vec![message]))
+            }
+        }
+    }
+
+    // next_state flattens any/all messages into a new State 
+    pub fn next_state(&self) -> Self {
+         let next_state = match self {
+            State(state, Some(updates)) => {
+                let mut next = state.clone();
+                updates.iter().for_each(|u| 
+                    match u {
+                        Update::Insert(key, value) => { 
+                            next.insert(key.clone(), value.clone());
+                        }
+                        Update::Delete(key) => {
+                            next.remove(key);
+                        }
+                    }
+                );
+
+                next
+            }
+            State(state, None) => {
+                state.to_owned()
+            }
+        };
+
+        State(next_state, None)
+    }
+}
+
+#[test]
+fn test_dispatch() {
+    let state = State::default();
+    let old = state.get_hash_code();
+
+    let state = state
+        .dispatch(Update::Insert("test".to_string(), 10.0.into()))
+        .dispatch(Update::Insert("test".to_string(), 14.0.into()))
+        .next_state();
+
+    let new = state.get_hash_code();
+    assert_ne!(old, new); 
+
+    if let Some(v) = state.get("test") {
+        assert_eq!(14.0, v.to_owned().into());
+    }
+
 }
 
 impl Into<Attribute> for State {
@@ -76,7 +154,7 @@ impl Into<Attribute> for State {
 
 impl From<&BTreeMap<String, Attribute>> for State {
     fn from(state: &BTreeMap<String, Attribute>) -> Self {
-        State(state.clone())
+        State(state.clone(), None)
     }
 }
 

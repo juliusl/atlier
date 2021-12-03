@@ -1,7 +1,8 @@
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
-use imnodes::{editor, CoordinateSystem};
+use imnodes::{editor, CoordinateSystem, NodeId};
 use imnodes::{EditorContext, IdentifierGenerator};
 
 mod resource;
@@ -30,7 +31,7 @@ pub trait EditorComponent {
         resources: Vec<EditorResource>,
     ) -> Vec<EditorResource>;
 
-    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui);
+    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui, state: Option<&State>);
 
     // Return the current state
     fn get_state(&self) -> Vec<Self::State>;
@@ -44,7 +45,7 @@ pub trait NodeComponent {
         resources: Vec<NodeResource>,
     ) -> Vec<NodeResource>;
 
-    fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui);
+    fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui, state: &State);
 }
 
 // NodeModule encapsulates a single editor and it's resources
@@ -67,6 +68,58 @@ pub fn begin_context_menu<'a>(
     ui.begin_popup(popup_id)
 }
 
+impl<'a> NodeModule {
+    fn get_node_resource_name_from_link(
+        &mut self,
+        nodeid: NodeId,
+        link: imnodes::Link,
+    ) -> Option<&'static str> {
+        let imnodes::Link {
+            start_pin, end_pin, ..
+        } = link;
+        self.resources.iter().find_map(|f| match f {
+            EditorResource::Node {
+                id: Some(id),
+                resources,
+            } if *id == nodeid => resources.iter().find_map(|f| match f {
+                NodeResource::Output(start_node_name, _, _, Some(start_id))
+                | NodeResource::Reducer(start_node_name, _, _, _, _, Some(start_id), _)
+                    if *start_id == start_pin =>
+                {
+                    Some(start_node_name())
+                }
+                NodeResource::Input(end_node_name, Some(end_id)) if *end_id == end_pin => {
+                    Some(end_node_name())
+                }
+                _ => None,
+            }),
+            _ => None,
+        })
+    }
+
+    fn get_state_for_resource(
+        states: Option<&HashMap<NodeId, Attribute>>,
+        res: &EditorResource,
+    ) -> Option<State> {
+        if let Some(map) = states {
+            if let EditorResource::Node {
+                id: Some(nodeid), ..
+            } = res
+            {
+                if let Some(Attribute::Map(m)) = map.get(&nodeid) {
+                    return Some(State::from(m));
+                } else {
+                    return None;
+                }
+            } else {
+                return None;
+            }
+        } else {
+            return None;
+        }
+    }
+}
+
 impl<'a> EditorComponent for NodeModule {
     type State = EditorResource;
 
@@ -78,9 +131,7 @@ impl<'a> EditorComponent for NodeModule {
         EditorResource::setup(id_gen, editor_context, resources.to_owned())
     }
 
-    fn show(&mut self, mut editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {
-        self.context_menu(ui);
-
+    fn show(&mut self, mut editor: &mut imnodes::EditorScope, ui: &imgui::Ui, _: Option<&State>) {
         // Render nodes
         self.resources
             .iter_mut()
@@ -92,9 +143,13 @@ impl<'a> EditorComponent for NodeModule {
                 }
             })
             .for_each(|res| {
-                let editor_scope = &mut editor;
-
-                res.show(editor_scope, ui)
+                if let (_, Some(states)) = &self.state {
+                    let borrowed: &EditorResource = res.borrow();
+                    if let Some(s) = Self::get_state_for_resource(Some(&states), borrowed) {
+                        let editor_scope = &mut editor;
+                        res.show(editor_scope, ui, Some(&s));
+                    }
+                }
             });
 
         // Render links
@@ -112,6 +167,8 @@ impl<'a> EditorComponent for NodeModule {
                     editor.add_link(*id, end.1, start.1)
                 }
             });
+
+        self.context_menu(ui);
 
         if let (true, Some((debug, debug_attr))) = self.debug {
             editor.add_node(debug, |mut nodescope| {
@@ -165,10 +222,11 @@ impl<'a> EditorComponent for NodeModule {
                                                 imgui::TreeNode::new(name).push(ui)
                                             {
                                                 ui.text(format!(
-                                                    "{:?}\n{:?}\n{:?}",
+                                                    "{:?}\n{:?}\n{:?}\n{:?}",
                                                     i.get_position(CoordinateSystem::ScreenSpace),
                                                     i.get_position(CoordinateSystem::EditorSpace), // TODO: These two appear to be the same
                                                     i.get_position(CoordinateSystem::GridSpace),
+                                                    i.get_dimensions(),
                                                 ));
                                                 ui.text(name);
                                                 ui.text(state);
@@ -223,7 +281,7 @@ impl<'a> EditorComponent for NodeModule {
                     .to_vec()
                     .iter()
                     .map(|n| {
-                        if let Some(state) = &self.state.1 {
+                        if let (_, Some(state)) = &self.state {
                             if let Some(Attribute::Map(state)) = state.get(nodeid) {
                                 match n {
                                     NodeResource::Output(v, func, _, i) => {
@@ -242,11 +300,11 @@ impl<'a> EditorComponent for NodeModule {
                                         reduce,
                                         (hash_code, reduced_state),
                                         output_id,
-                                        attr_id
+                                        attr_id,
                                     ) => {
-                                        let (next_hash_code, next_param) = map(State::from(state)); 
+                                        let (next_hash_code, next_param) = map(State::from(state));
 
-                                        let next =  if next_hash_code != *hash_code {
+                                        let next = if next_hash_code != *hash_code {
                                             let next_state = reduce(next_param);
                                             NodeResource::Reducer(
                                                 name.to_owned(),
@@ -310,7 +368,6 @@ impl<'a> EditorComponent for NodeModule {
     }
 
     fn context_menu(&mut self, ui: &imgui::Ui) {
-
         let window_padding = ui.push_style_var(imgui::StyleVar::WindowPadding([16.0, 8.0]));
         if let Some(popup_token) = begin_context_menu("editor_context_menu", ui) {
             let pos = ui.mouse_pos_on_opening_current_popup();
@@ -367,97 +424,38 @@ impl<'a> EditorComponent for NodeModule {
 
 impl<'a> NodeEventHandler for NodeModule {
     fn on_node_link_created(&mut self, link: imnodes::Link) {
-        if let (false, s, e, start_node, end_node) = (
-            link.craeated_from_snap,
-            link.start_pin,
-            link.end_pin,
-            link.start_node,
-            link.end_node,
-        ) {
-            let exists = self.resources.iter().any(|f| {
-                if let EditorResource::Link { end, start, .. } = f {
-                    return e == end.1 && s == start.1;
-                }
+        let imnodes::Link {
+            start_node,
+            end_node,
+            start_pin,
+            end_pin,
+            craeated_from_snap,
+        } = link;
 
-                return false;
-            });
+        let exists = self.resources.iter().any(|f| {
+            match f {
+                EditorResource::Link {
+                            end: (_, end),
+                            start: (_, start),
+                            ..
+                        } 
+                if end_pin == *end && start_pin == *start => true,
+                _ => false,
+            }
+        });
 
-            if !exists {
-                let linkid = self.id_gen.next_link();
+        if !exists && craeated_from_snap {
+            let linkid = self.id_gen.next_link();
 
-                let output_name = self.resources.iter().find_map(|f| {
-                    if let EditorResource::Node {
-                        id: Some(id),
-                        resources,
-                    } = f
-                    {
-                        if *id == start_node {
-                            let name = resources.iter().find_map(|f| match f {
-                                NodeResource::Output(start_node_name, _, _, Some(start_id)) => {
-                                    if *start_id == s {
-                                        Some(start_node_name())
-                                    } else {
-                                        None
-                                    }
-                                }
-                                NodeResource::Reducer(
-                                    start_node_name,
-                                    _,
-                                    _,
-                                    _,
-                                    _,
-                                    Some(start_id),
-                                    _,
-                                ) => {
-                                    if *start_id == s {
-                                        Some(start_node_name())
-                                    } else {
-                                        None
-                                    }
-                                }
-                                _ => None,
-                            });
-                            return name;
-                        }
-                        None
-                    } else {
-                        None
-                    }
+            if let (Some(output_name), Some(input_name)) = (
+                self.get_node_resource_name_from_link(start_node, link),
+                self.get_node_resource_name_from_link(end_node, link),
+            ) {
+                self.resources.push(EditorResource::Link {
+                    id: linkid,
+                    start: (output_name.to_string(), start_pin),
+                    end: (input_name.to_string(), end_pin),
                 });
-
-                let input_name = self.resources.iter().find_map(|f| {
-                    if let EditorResource::Node {
-                        id: Some(id),
-                        resources,
-                    } = f
-                    {
-                        if *id == end_node {
-                            let name = resources.iter().find_map(|f| {
-                                if let NodeResource::Input(end_node_name, Some(end_id)) = f {
-                                    if *end_id == e {
-                                        Some(end_node_name())
-                                    } else {
-                                        None
-                                    }
-                                } else {
-                                    None
-                                }
-                            });
-                            return name;
-                        }
-                        None
-                    } else {
-                        None
-                    }
-                });
-
-                if let (Some(output_name), Some(input_name)) = (output_name, input_name) {
-                    self.resources.push(EditorResource::Link {
-                        id: linkid,
-                        start: (output_name.to_string(), s),
-                        end: (input_name.to_string(), e),
-                    });
-                }
             }
         }
     }
@@ -466,14 +464,17 @@ impl<'a> NodeEventHandler for NodeModule {
         let next: Vec<EditorResource> = self
             .resources
             .iter()
-            .filter(|l| {
+            .filter_map(|l| {
                 if let EditorResource::Link { id, .. } = l {
-                    return *id != linkid;
+                    if *id != linkid {
+                        Some(l.to_owned())
+                    } else {
+                        None
+                    }
                 } else {
-                    return true;
+                    Some(l.to_owned())
                 }
             })
-            .map(|f| f.to_owned())
             .collect();
 
         self.resources = next;
@@ -533,6 +534,8 @@ impl<'a> App<'a> for NodeEditor {
                 .size([-1.0, 0.00])
                 .build(ui, || {
                     self.modules.iter_mut().for_each(|(e, m)| {
+                        e.set_style_colors_classic();
+
                         let node_padding =
                             imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
                         let resources = <NodeModule as EditorComponent>::setup(
@@ -544,7 +547,7 @@ impl<'a> App<'a> for NodeEditor {
 
                         let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
 
-                        let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
+                        let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui, None));
 
                         for i in outer_scope.links_created() {
                             m.on_node_link_created(i);

@@ -1,85 +1,59 @@
-use crate::system::{Attribute, EditorResource, NodeExterior, NodeResource, Reducer, Value};
+use crate::system::{Display, Attribute, NodeExterior, NodeResource, Reducer, Value};
 
-pub struct ColorEditor {}
+pub struct ColorEditor;
 
 impl NodeExterior for ColorEditor {
-    fn resource(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource {
-        EditorResource::Node {
-            id: nodeid,
-            resources: vec![
-                NodeResource::Title(ColorEditor::title()),
-                NodeResource::Input(|| "red", None),
-                NodeResource::Input(|| "green", None),
-                NodeResource::Input(|| "blue", None),
-                NodeResource::Reducer(
-                    RedChannel::result_name,
-                    Self::input,
-                    RedChannel::map,
-                    RedChannel::reduce,
-                    (0, None),
-                    None,
-                    None,
-                ),
-                NodeResource::Reducer(
-                    BlueChannel::result_name,
-                    Self::input,
-                    BlueChannel::map,
-                    BlueChannel::reduce,
-                    (0, None),
-                    None,
-                    None,
-                ),
-                NodeResource::Reducer(
-                    GreenChannel::result_name,
-                    Self::input,
-                    GreenChannel::map,
-                    GreenChannel::reduce,
-                    (0, None),
-                    None,
-                    None,
-                ),
-                NodeResource::Action(|| "display", Self::action, None),
-            ],
-        }
+    fn title() -> &'static str {
+        "Color Editor"
     }
 
-    fn action(
+    fn group_name() -> &'static str {
+        "Graphics"
+    }
+
+    fn inputs() -> Option<Vec<NodeResource>> {
+        Some(
+            vec![
+                RedChannel::parameter(),
+                GreenChannel::parameter(),
+                BlueChannel::parameter(),
+                RedChannel::resource_input(),
+                GreenChannel::resource_input(),
+                BlueChannel::resource_input(),
+            ]
+        )
+    }
+}
+
+impl Display for ColorEditor {
+    fn display_name() -> &'static str {
+        "preview"
+    }
+    
+    fn display(
         name: String,
         width: f32,
         ui: &imgui::Ui,
-        state: crate::system::State,
+        state: &crate::system::State,
     ) {
         if let (
             Some(Attribute::Literal(Value::Float(r))),
             Some(Attribute::Literal(Value::Float(g))),
             Some(Attribute::Literal(Value::Float(b))),
-        ) = (state.get("red"), state.get("green"), state.get("blue"))
+        ) = (state.get(RedChannel::param_name()), state.get(GreenChannel::param_name()), state.get(BlueChannel::param_name()))
         {
-            let mut color = [*r, *g, *b, 1.0];
+            let mut color = [r, g, b, 1.0];
             ui.set_next_item_width(width);
-            imgui::ColorPicker::new(name, &mut color).build(ui); 
+            imgui::ColorPicker::new(name, &mut color).display_rgb(true).build(ui); 
         }
-    }
-
-    fn title() -> &'static str {
-        "Color Editor"
     }
 }
 
 trait ChannelReducer : Reducer {
-    fn rgba_color_value(v: Value) -> f32 {
-        match v {
-            crate::system::Value::Float(f) => f % 255.0,
-            crate::system::Value::Int(i) => (i as f32) % 255.0,
-            crate::system::Value::FloatRange(f, _, _) => f % 255.0,
-            crate::system::Value::IntRange(i, _, _) => (i as f32) % 255.0,
-            _ => 0.00
-        }
-    }
-
     fn reduce_rgba(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
-        if let Some(Attribute::Literal(value)) = attribute {
-            Some(Value::Float(Self::rgba_color_value(value)).into())
+        if let Some(attr) = attribute {
+            let float_value:f32 = attr.into();
+            Some((float_value % 255.0).into())
         } else {
             None
         }

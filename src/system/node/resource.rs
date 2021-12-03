@@ -8,17 +8,16 @@ pub enum NodeResource {
     Title(&'static str),
     Extension(&'static str),
     Input(fn() -> &'static str, Option<imnodes::InputPinId>),
-    Output(
-        fn() -> &'static str,
-        fn(state: State) -> Option<Attribute>,
-        Option<Attribute>,        
-        Option<imnodes::OutputPinId>,
-    ),
     Attribute(
         fn() -> &'static str,
         fn(name: String, width: f32, ui: &imgui::Ui, attribute_value: &mut Attribute),
         Option<Attribute>,
         Option<imnodes::AttributeId>,
+    ),
+    Listener(
+        fn() -> &'static str,
+        fn(Option<Attribute>) -> Option<Attribute>,
+        Option<imnodes::InputPinId>
     ),
     Reducer(
         fn() -> &'static str,
@@ -29,15 +28,11 @@ pub enum NodeResource {
         Option<imnodes::OutputPinId>,
         Option<imnodes::AttributeId>,
     ),
-    Action(
+    Output(
         fn() -> &'static str,
-        fn(
-            name: String,
-            width: f32,
-            ui: &imgui::Ui,
-            state: State,
-        ),
-        Option<imnodes::AttributeId>,
+        fn(state: State) -> Option<Attribute>,
+        Option<Attribute>,        
+        Option<imnodes::OutputPinId>,
     ),
     Event(
         fn() -> &'static str,
@@ -46,10 +41,10 @@ pub enum NodeResource {
         Option<Attribute>,
         Option<imnodes::OutputPinId>,
     ),
-    Listener(
+    Display(
         fn() -> &'static str,
-        fn(Option<Attribute>) -> Option<Attribute>,
-        Option<imnodes::InputPinId>
+        fn(name: String, width: f32, ui: &imgui::Ui, state: &State),
+        Option<imnodes::AttributeId>,
     )
 }
 
@@ -73,7 +68,7 @@ impl Hash for NodeResource {
                 output_id.hash(state);
                 attr_id.hash(state);
             }
-            NodeResource::Action(_, _, Some(attr_id)) => {
+            NodeResource::Display(_, _, Some(attr_id)) => {
                 attr_id.hash(state);
             },
             NodeResource::Event(_, _, _, Some(b), Some(o)) => {
@@ -255,7 +250,7 @@ impl NodeResource {
             NodeResource::Input(s, _)
             | NodeResource::Output(s, ..)
             | NodeResource::Attribute(s, _, _, _)
-            | NodeResource::Action(s,  _, _)
+            | NodeResource::Display(s,  _, _)
             | NodeResource::Reducer(s, _, _, _, _, _, _)
             | NodeResource::Event(s, _, _, _, _)
             | NodeResource::Listener(s, _, _) => s().to_string(),
@@ -268,7 +263,7 @@ impl NodeResource {
             NodeResource::Input(_, v) => format!("{:#?}", v),
             NodeResource::Output(_, _, o, v) => format!("{:#?} {:#?}", o, v),
             NodeResource::Attribute(_, _, v, _) => format!("{:#?}", v),
-            NodeResource::Action(s, _, i) => format!("{:#?} {:#?}", s(), i),
+            NodeResource::Display(s, _, i) => format!("{:#?} {:#?}", s(), i),
             NodeResource::Reducer(s, _, _, _, v, o, a) => {
                 format!("{:#?} {:#?} {:#?} {:#?}", s(), v, o, a)
             }
@@ -293,7 +288,7 @@ impl NodeResource {
             }
             NodeResource::Output(n, o, v, _) => NodeResource::Output(*n, *o, v.clone(), None),
             NodeResource::Attribute(n, d, v, _) => NodeResource::Attribute(*n, *d, v.clone(), None),
-            NodeResource::Action(n, a, _) => NodeResource::Action(*n, *a, None),
+            NodeResource::Display(n, a, _) => NodeResource::Display(*n, *a, None),
             NodeResource::Reducer(n, d, m, r, v, _, _) => {
                 NodeResource::Reducer(*n, *d, *m, *r, (0, v.1.clone()), None, None)
             }
@@ -304,7 +299,7 @@ impl NodeResource {
 }
 
 impl NodeComponent for NodeResource {
-    fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui) {
+    fn show(&mut self, node: &mut imnodes::NodeScope, ui: &imgui::Ui, state: &State) {
         let width = 300.0;
 
         match self {
@@ -352,19 +347,16 @@ impl NodeComponent for NodeResource {
                     ui.text(name);
                 })
             }
-            NodeResource::Action(
+            NodeResource::Display(
                 name,
                 display_action,
                 Some(attr_id),
             ) => {
                 // An action maintains it's own state from when this node is initialzied
                 // It will receive updates for the interior of the node but cannot dispatch any changes, except to it's own state
-                // node.attribute(*attr_id, || {
-                //     let next = display_action(name().to_string(), width, &ui, State::from(action_state.borrow()));
-                //     if let Some(Attribute::Map(next_state)) = next {
-                //         *action_state = next_state;
-                //     }
-                // })
+                node.attribute(*attr_id, || {
+                    display_action(name().to_string(), width, &ui, state);
+                })
             }
             NodeResource::Event(name, _, _, Some(..), Some(o)) => {
                 node.add_output(*o, imnodes::PinShape::Quad, ||{
@@ -404,8 +396,8 @@ impl NodeComponent for NodeResource {
                         Some(id_gen.next_attribute()),
                     )
                 }
-                NodeResource::Action(name, action, None) => {
-                    NodeResource::Action(name, action, Some(id_gen.next_attribute()))
+                NodeResource::Display(name, action, None) => {
+                    NodeResource::Display(name, action, Some(id_gen.next_attribute()))
                 }
                 NodeResource::Input(name, None) => {
                     NodeResource::Input(name, Some(id_gen.next_input_pin()))
@@ -459,7 +451,7 @@ impl EditorResource {
                         | NodeResource::Output(_, _, _, _)
                         | NodeResource::Attribute(_, _, _, _)
                         | NodeResource::Reducer(_, _, _, _, _, _, _)
-                        | NodeResource::Action(_, _, _) 
+                        | NodeResource::Display(_, _, _) 
                         | NodeResource::Event(_, _, _, _, _)
                         | NodeResource::Listener(_, _, _) => Some(f.copy_blank()),
                     })
@@ -522,7 +514,7 @@ impl EditorComponent for EditorResource {
         next
     }
 
-    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui) {
+    fn show(&mut self, editor: &mut imnodes::EditorScope, ui: &imgui::Ui, state: Option<&State>) {
         match self {
             EditorResource::Node {
                 id: Some(id),
@@ -534,7 +526,9 @@ impl EditorComponent for EditorResource {
 
                 while let Some(next) = iter.next() {
                     let node_scope = &mut scope;
-                    next.show(node_scope, ui);
+                    if let Some(s) = state {
+                        next.show(node_scope, ui, s);
+                    }
                 }
             });
         },

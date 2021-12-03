@@ -1,6 +1,6 @@
-use super::{Attribute, NodeResource, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
-use crate::{system::{EditorResource, State, Value}};
-use std::marker::PhantomData;
+use super::{Attribute, NodeResource, Output, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
+use crate::{system::{State, Value}};
+use std::{marker::PhantomData};
 
 // An ExpressionFunc takes two parameters of the same type and returns a result of the same type
 pub trait ExpressionFunc2<T> {
@@ -20,11 +20,11 @@ where
     _p: PhantomData<V>,
 }
 
-impl <V> FloatExpression<V>
+impl <V> Default for FloatExpression<V>
 where
     V: ExpressionFunc2<f32>
 {
-    pub fn new() -> Self {
+    fn default() -> Self {
         FloatExpression::<V> {
             lhs: 0.00,
             rhs: 0.00,
@@ -36,34 +36,37 @@ where
 impl<V> NodeExterior for FloatExpression<V>  
 where
     V: ExpressionFunc2<f32> 
-{
-    // Defintion for an editor resource
-    fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
-            EditorResource::Node {
-                resources: vec!(
-                    NodeResource::Title(Self::title()),
-                    NodeResource::Input(|| "lhs", None), 
-                    NodeResource::Input(|| "rhs", None), 
-                    NodeResource::Output(V::result_name(), |state| {
-                        FloatExpression::<V>::accept(state).evaluate() 
-                    }, 
-                    None,
-                    None)
-                ),
-                id: nodeid
-            }
-    }
-
+{    
     fn title() -> &'static str {
         V::title()()
     }
+
+    fn group_name() -> &'static str {
+        "Float Expressions"
+    }
+
+    fn inputs() -> Option<Vec<NodeResource>> {
+        Some(vec![
+            NodeResource::Input(||"lhs", None),
+            NodeResource::Input(||"rhs", None)
+        ])
+    }
 }
 
-impl<'a, V> NodeInterior<'a> for FloatExpression<V> 
+impl<V> Output for FloatExpression<V>  
 where
     V: ExpressionFunc2<f32> 
 {
-    type Literal = (Option<&'a Attribute>, Option<&'a Attribute>); 
+    fn output_name() -> &'static str {
+        V::result_name()()
+    }
+}
+
+impl<V> NodeInterior for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32> 
+{
+    type Literal = (Option<Attribute>, Option<Attribute>); 
     type Visitor = FloatExpression<V>;
 
     // If this interior is implemented there are two inputs "lhs" and "rhs"
@@ -143,15 +146,15 @@ impl ExpressionFunc2<f32> for Multiply {
     }
 }
 
-impl<'a, V> From<(Option<&'a Attribute>, Option<&'a Attribute>)> for FloatExpression<V> 
+impl<V> From<(Option<Attribute>, Option<Attribute>)> for FloatExpression<V> 
 where
     V: ExpressionFunc2<f32>
 {
-    fn from(tuple: (Option<&'a Attribute>, Option<&'a Attribute>)) -> Self {
+    fn from(tuple: (Option<Attribute>, Option<Attribute>)) -> Self {
        match tuple {
-           (Some(Attribute::Literal(Value::Float(lhs))), Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
-           (Some(Attribute::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: *lhs, rhs: 0.0, _p: PhantomData::default() },
-           (None, Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: *rhs, _p: PhantomData::default() },
+           (Some(Attribute::Literal(Value::Float(lhs))), Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: lhs, rhs: rhs, _p: PhantomData::default() },
+           (Some(Attribute::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: lhs, rhs: 0.0, _p: PhantomData::default() },
+           (None, Some(Attribute::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: rhs, _p: PhantomData::default() },
            _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
        }
     }

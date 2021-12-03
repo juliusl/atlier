@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use specs::{Component, VecStorage};
 
-use super::{NodeExterior, Value};
+use super::{NodeExterior, Reducer, Value};
 
 pub struct Resource<T>
 where 
@@ -34,14 +34,19 @@ where
 
 impl<T> NodeExterior for Resource<T>
 where 
-    T: NodeExterior + 'static + Sync + Send
+    T: NodeExterior + 'static + Sync + Send + Reducer
 {
-    fn resource(nodeid: Option<imnodes::NodeId>) -> super::EditorResource {
-        T::resource(nodeid)
+    fn editor_resource(nodeid: Option<imnodes::NodeId>) -> super::EditorResource 
+    {
+        T::editor_resource(nodeid)
     }
 
     fn title() -> &'static str {
         T::title()
+    }
+
+    fn group_name() -> &'static str {
+        T::group_name()
     }
 }
 
@@ -58,6 +63,28 @@ pub enum Attribute {
     Map(BTreeMap<String, Attribute>),
     Empty,
     Error(String),
+}
+
+impl Into<f32> for Attribute {
+    fn into(self) -> f32 {
+        match self {
+            crate::system::Attribute::Literal(l) => match l {
+                crate::system::Value::Float(f) => f,
+                crate::system::Value::Int(i) => (i as f32),
+                crate::system::Value::FloatRange(f, _, _) => f,
+                crate::system::Value::IntRange(i, _, _) => (i as f32),
+                _ => 0.00
+            },
+            _ => 0.00
+        }
+    }
+}
+
+impl Into<f64> for Attribute {
+    fn into(self) -> f64 {
+       let v: f32 = self.into();
+       v as f64
+    }
 }
 
 impl From<f32> for Attribute {

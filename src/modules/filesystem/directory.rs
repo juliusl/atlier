@@ -1,28 +1,16 @@
 use std::collections::BTreeMap;
-use specs::{Component, DenseVecStorage, Entities, Join, ReadStorage, System, WriteStorage};
 
 use crate::prelude::*;
 
 pub struct ListDirectory;
 
-impl Component for ListDirectory {
-    type Storage = DenseVecStorage<Self>;
-}
+impl NodeExterior for ListDirectory {
+    fn title() -> &'static str {
+        "List Directory"
+    }
 
-impl<'a> System<'a> for ListDirectory {
-    type SystemData = (
-        Entities<'a>,
-        ReadStorage<'a, Resource<ListDirectory>>, 
-        WriteStorage<'a, Resource<ListDirectory>>);
-
-    fn run(&mut self, (e, existing, mut resources): Self::SystemData) {
-        (&e, existing.maybe()).join().for_each(|(e, r)| {
-            if let None = r {
-                if let Err(e) = resources.insert(e, Resource::new(ListDirectory{})) {
-                    println!("Error: {}", e);
-                }
-            }
-        }); 
+    fn group_name() -> &'static str {
+        "Filesystem"
     }
 }
 
@@ -44,36 +32,14 @@ impl Reducer for ListDirectory {
             None
         }
     }
-}
 
-// TODO: This trait could be derived
-impl NodeExterior for ListDirectory {
-    fn title() -> &'static str {
-        "List Directory"
-    }
-
-    fn resource(nodeid: Option<imnodes::NodeId>) -> EditorResource {
-        EditorResource::Node {
-            resources: vec![
-                NodeResource::Title(Self::title()),
-                NodeResource::Attribute(
-                    Self::param_name,
-                    Self::input,
-                    Some(Attribute::Literal(Value::TextBuffer("./".to_string()))),
-                    None,
-                ),
-                NodeResource::Reducer(
-                    Self::result_name,
-                    Self::table_select, 
-                    Self::map,
-                    Self::reduce,
-                    (0, None),
-                    None,
-                    None,
-                )
-            ],
-            id: nodeid
-        }
+    fn parameter() -> NodeResource {
+        NodeResource::Attribute(
+            Self::param_name,
+            Self::input,
+            Some(Attribute::Literal(Value::TextBuffer("./".to_string()))),
+            None,
+        )
     }
 }
 
