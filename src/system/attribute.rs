@@ -1,10 +1,13 @@
-use std::{collections::BTreeMap, any::Any};
+use std::{collections::BTreeMap,};
 
-use super::{Value, State, NodeExterior, EditorResource, NodeResource, Reducer};
+use specs::{Entities, System};
+
+use super::{EditorResource, NodeExterior, NodeInterior, NodeResource, NodeVisitor, Reducer, Routines, State, Value};
 
 #[derive(Debug, Clone, Hash)]
 pub enum Attribute {
     Literal(Value),
+    Functions(Routines),
     Map(BTreeMap<String, Attribute>),
     Empty,
     Error(String),
@@ -54,6 +57,70 @@ impl Reducer for Attribute {
 
     fn reduce(attribute: Option<Attribute>) -> Option<Attribute> {
         attribute
+    }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::input(label, width, ui, value)
+    }
+}
+
+impl NodeVisitor for Attribute {
+    fn evaluate(&self) -> Option<State> {
+        let state: State = self.clone().into();
+        Some(state.into())
+    }
+
+    fn call(&self, name: &str) -> Self {
+        todo!()
+    }
+}
+
+impl<'a> NodeInterior<'a> for Attribute {
+    type Visitor = Self;
+}
+
+impl<'a> System<'a> for Attribute {
+    type SystemData = Entities<'a>;
+
+    fn run(&mut self, data: Self::SystemData) {
+        todo!()
+    }
+}
+
+impl Into<State> for Attribute {
+    fn into(self) -> State {
+        let state = State::default();
+        let state = match &self {
+            Attribute::Literal(literal) => {
+            let state = state.set_namespace("attribute/literal");
+            match literal {
+                Value::Float(_) => state.insert("float", self),
+                Value::Int(_) => state.insert("int", self),
+                Value::Bool(_) => state.insert("bool", self),
+                Value::FloatRange(_, _, _) => state.insert("float_range", self),
+                Value::IntRange(_, _, _) => state.insert("int_range", self),
+                Value::TextBuffer(_) => state.insert("text_buffer", self),
+            }
+        },
+            Attribute::Functions(routines) => {
+                let state = state.set_namespace("attribute/functions");
+                match routines {
+                Routines::Name(_) => state.insert("name", self),
+                Routines::Select(_) => state.insert("select", self),
+                Routines::Reduce(_) => state.insert("reduce", self),
+                Routines::Transform(_) => state.insert("transform", self),
+                Routines::Next(_) => state.insert("next", self),
+            }},
+            Attribute::Map(_) => { 
+                let state = state.set_namespace("attribute/map");
+                state.insert("map", self) },
+            Attribute::Error(_) => {
+                let state = state.set_namespace("attribute/error");
+                state.insert("error", self)},
+            Attribute::Empty => state,
+        };
+
+        state
     }
 }
 
@@ -139,6 +206,12 @@ impl From<State> for Attribute {
     }
 }
 
+impl From<Routines> for Attribute {
+    fn from(r: Routines) -> Self {
+        Attribute::Functions(r)
+    }
+}
+
 impl Attribute {
     // Get a blank copy
     pub fn copy_blank(&self) -> Self {
@@ -156,6 +229,7 @@ impl Attribute {
             Attribute::Map(_) => Attribute::from(&BTreeMap::new()),
             Attribute::Error(msg) => Attribute::Error(msg.clone()),
             Attribute::Empty => Attribute::Empty,
+            Attribute::Functions(_) => todo!(),
         }
     }
 }

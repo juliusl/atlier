@@ -6,20 +6,23 @@ fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
 
+    let state =   State::default()
+        .insert("blue", [0.00, 0.00, 255.00])
+        .insert("green", [0.00, 0.00, 255.00])
+        .insert("red", [0.00, 0.00, 255.00]);
 
-    let color_editor =   Attribute::from(
-        State::default()
-            .insert("blue", [0.00, 0.00, 255.00])
-            .insert("green", [0.00, 0.00, 255.00])
-            .insert("red", [0.00, 0.00, 255.00])
-            .next_state()
-    );
+    let color_editor = state.map(&["red", "green", "blue"])
+            .reduce::<ColorEditor>(|s, ed| {
+                ed.update(s)
+            })
+        .visit::<ColorEditor>()
+        .call("display");
 
     let app = NodeEditor::new("node-editor").module(
         vec![
             FloatExpression::<Add>::output_node(None),
             //ListDirectory::reducer_node(None, true),
-            color_editor.into(),
+            //color_editor
             //ColorEditor::editor_resource(None),
             //ColorEditor::display_node(None),
         ],
@@ -34,6 +37,7 @@ fn main() {
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new()
+        .with(color_editor, "color_editor", &[])
         .with_thread_local(gui).build();
     dispatcher.setup(&mut w);
 

@@ -39,6 +39,10 @@ impl Reducer for ListDirectory {
             None,
         )
     }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::table_select(label, width, ui, value)
+    }
 }
 
 fn read_dir(path: &str) -> Option<Attribute> {

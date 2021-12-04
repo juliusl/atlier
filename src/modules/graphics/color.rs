@@ -1,6 +1,67 @@
-use crate::system::{Display, Attribute, NodeExterior, NodeResource, Reducer, Value};
+use specs::{Entities, System};
 
-pub struct ColorEditor;
+use crate::system::{Attribute, Display, NodeExterior, NodeInterior, NodeResource, NodeVisitor, Reducer, State, Value};
+
+#[derive(Clone)]
+pub struct ColorEditor(State);
+
+impl<'a> NodeInterior<'a> for ColorEditor {
+    type Visitor = Self;
+}
+
+impl Reducer for ColorEditor {
+    fn result_name() -> &'static str {
+        todo!()
+    }
+
+    fn param_name() -> &'static str {
+        todo!()
+    }
+
+    fn reduce(attribute: Option<Attribute>) -> Option<Attribute> {
+        todo!()
+    }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        todo!()
+    }
+}
+
+impl<'a> System<'a> for ColorEditor {
+    type SystemData = Entities<'a>;
+
+    fn run(&mut self, data: Self::SystemData) {
+        todo!()
+    }
+}
+
+impl NodeVisitor for ColorEditor {
+    fn evaluate(&self) -> Option<State> {
+        todo!()
+    }
+
+    fn call(&self, name: &str) -> Self
+    where
+            Self: Sized + Clone 
+    {
+        match name {
+            "test" => self.clone(),
+            _ => self.clone()
+        }
+    }
+}
+
+impl Into<State> for ColorEditor {
+    fn into(self) -> State {
+        todo!()
+    }
+}
+
+impl From<State> for ColorEditor {
+    fn from(state: State) -> Self {
+        ColorEditor(state)
+    }
+}
 
 impl NodeExterior for ColorEditor {
     fn title() -> &'static str {
@@ -84,6 +145,10 @@ impl Reducer for RedChannel {
     fn reduce(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
        Self::reduce_rgba(attribute)
     }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::input(label, width, ui, value)
+    }
 }
 
 struct GreenChannel;
@@ -106,6 +171,9 @@ impl Reducer for GreenChannel {
     }
     fn reduce(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
         Self::reduce_rgba(attribute)
+    }
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::input(label, width, ui, value)
     }
 }
 
@@ -130,5 +198,8 @@ impl Reducer for BlueChannel {
     }
     fn reduce(attribute: Option<crate::system::Attribute>) -> Option<crate::system::Attribute> {
         Self::reduce_rgba(attribute)
+    }
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::input(label, width, ui, value)
     }
 }

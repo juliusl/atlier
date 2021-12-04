@@ -44,4 +44,8 @@ impl Reducer for Time {
             None 
         }
     }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
+        Self::noop_display(label, width, ui, value)
+    }
 }

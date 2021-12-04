@@ -1,5 +1,5 @@
 use super::{NodeComponent, EditorComponent};
-use crate::system::{Attribute, State};
+use crate::system::{Attribute, Routines, State};
 use imnodes::{InputPinId, OutputPinId};
 use std::{collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
 
@@ -37,7 +37,7 @@ pub enum NodeResource {
     Event(
         fn() -> &'static str,
         fn(name:String, ui: &imgui::Ui) -> bool,
-        fn(state: Option<State>) -> bool,
+        fn(state: State) -> Option<State>,
         fn(state: State) -> Option<Attribute>,
         Option<Attribute>,
         Option<imnodes::OutputPinId>,
@@ -46,7 +46,24 @@ pub enum NodeResource {
         fn() -> &'static str,
         fn(name: String, width: f32, ui: &imgui::Ui, state: &State),
         Option<imnodes::AttributeId>,
-    )
+    ),
+    Empty
+}
+
+impl From<State> for NodeResource {
+    fn from(state: State) -> Self {
+        if let Some(Attribute::Map(map)) = state.get("Title") {
+            let resource = if let Some(Attribute::Functions(Routines::Name(name))) = map.get("Name") {
+                NodeResource::Title(name())
+            } else {
+                NodeResource::Empty
+            };
+
+            return resource;
+        } 
+
+        todo!()
+    }
 }
 
 impl Hash for NodeResource {
@@ -250,6 +267,7 @@ impl NodeResource {
             | NodeResource::Reducer(s, _, _, _, _, _, _)
             | NodeResource::Event(s, _, _, _, _, _)
             | NodeResource::Listener(s, _, _) => s().to_string(),
+            NodeResource::Empty => todo!(),
         }
     }
 
@@ -265,6 +283,7 @@ impl NodeResource {
             }
             NodeResource::Event(s, _, _, _, v, o) => format!("{:#?} {:#?} {:#?}", s(), v, o),
             NodeResource::Listener(s, _, i) => format!("{:#?} {:#?}", s(), i),
+            NodeResource::Empty => todo!(),
         }
     }
 
@@ -290,6 +309,7 @@ impl NodeResource {
             }
             NodeResource::Event(n, uie, e, t, v, _) => NodeResource::Event(*n,*uie, *e, *t, v.clone(), None),
             NodeResource::Listener(n, i, _) => NodeResource::Listener(*n, *i, None),
+            NodeResource::Empty => todo!(),
         }
     }
 }
@@ -450,6 +470,7 @@ impl EditorResource {
                         | NodeResource::Display(_, _, _) 
                         | NodeResource::Event(_, _, _, _, _, _)
                         | NodeResource::Listener(_, _, _) => Some(f.copy_blank()),
+                        NodeResource::Empty => todo!(),
                     })
                     .map(|r| r.copy_blank())
                 {

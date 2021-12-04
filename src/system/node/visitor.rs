@@ -1,24 +1,43 @@
 use imgui::TableColumnSetup;
 use imnodes::CoordinateSystem;
+use specs::System;
 
-use crate::system::{State, Value};
+use crate::system::{Routines, State, Value};
 
 use super::{Attribute, EditorResource, NodeResource};
 
 // These are traits to help define different types of nodes that can be used from the editor
 
-pub trait NodeInterior {
-    type Visitor: NodeVisitor + From<State>;
+pub trait NodeInterior<'a> {
+    type Visitor: NodeVisitor + From<State> + System<'a>;
 
-    // Accept a visitor to convert the current interior state
+    /// `accept` returns an instance of the Visitor type, from the passed in state
     fn accept(state: State) -> Self::Visitor {
         Self::Visitor::from(state)
-   }
+    }
 }
 
-pub trait NodeVisitor {
-    // Evaluate a result from this visitor
-    fn evaluate(&self) -> Option<Attribute>;
+pub trait NodeVisitor
+where
+    Self: Sized + Clone + Into<State>
+{
+    /// call a function by name
+    fn call(&self, name: &str) -> Self;
+
+    // evaluate all calls and if a new state exists returns Some state
+    fn evaluate(&self) -> Option<State>;
+
+    // update applies the next state and returns the result 
+    fn update(&self, next: State) -> State {
+        self.load()
+            .merge(next)
+            .next_state()
+    }
+
+    // load returns the latest state
+    fn load(&self) -> State {
+        Self::into(self.clone())
+    }
 }
 
 pub trait NodeExterior {
@@ -32,8 +51,7 @@ pub trait NodeExterior {
     }
 
     // Return an editor resource to represent the exterior of the node
-    fn editor_resource(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource
-    {
+    fn editor_resource(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource {
         let mut resources = vec![NodeResource::Title(Self::title())];
         if let Some(inputs) = Self::inputs() {
             inputs.iter().for_each(|n| {
@@ -43,64 +61,66 @@ pub trait NodeExterior {
 
         EditorResource::Node {
             id: nodeid,
-            resources
+            resources,
         }
     }
 
-    fn output_node(nodeid: Option<imnodes::NodeId>)  -> crate::system::EditorResource
+    fn output_node<'a>(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource
     where
-        Self: Output
+        Self: Output<'a>,
     {
         match Self::editor_resource(nodeid) {
             EditorResource::Node { mut resources, .. } => {
                 resources.push(<Self as Output>::resource());
                 EditorResource::Node {
                     resources,
-                    id: nodeid
+                    id: nodeid,
                 }
             }
-            e => e 
+            e => e,
         }
     }
 
-    fn reducer_node(nodeid: Option<imnodes::NodeId>, table_select: bool) -> crate::system::EditorResource 
+    fn reducer_node(
+        nodeid: Option<imnodes::NodeId>,
+        table_select: bool,
+    ) -> crate::system::EditorResource
     where
-        Self: Reducer
+        Self: Reducer,
     {
         match Self::editor_resource(nodeid) {
             EditorResource::Node { mut resources, .. } => {
                 resources.push(Self::parameter());
                 if table_select {
                     resources.push(<Self as Reducer>::resource_table_select());
-                }
-                else {
+                } else {
                     resources.push(<Self as Reducer>::resource_input());
                 }
 
                 EditorResource::Node {
                     resources,
-                    id: nodeid
+                    id: nodeid,
                 }
             }
-            e => e 
+            e => e,
         }
     }
 
     fn display_node(nodeid: Option<imnodes::NodeId>) -> crate::system::EditorResource
     where
-        Self: Display
+        Self: Display,
     {
-            match Self::editor_resource(nodeid) {
-                EditorResource::Node { mut resources, .. } => {
-                    resources.push(<Self as Display>::resource());
-    
-                    EditorResource::Node {
-                        resources,
-                        id: nodeid
-                    }
+        match Self::editor_resource(nodeid) {
+            EditorResource::Node { mut resources, .. } => {
+                resources.push(<Self as Display>::resource());
+
+                EditorResource::Node {
+                    resources,
+                    id: nodeid,
                 }
-                e => e 
             }
+            e => e,
+        }
     }
 
     fn enable(name: String, ui: &imgui::Ui) -> bool {
@@ -151,7 +171,7 @@ pub trait NodeExterior {
 
     fn table_select(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute)
     where
-        Self: Reducer
+        Self: Reducer,
     {
         if let Attribute::Map(map) = value {
             if let Some(table_token) = ui.begin_table_header_with_sizing(
@@ -247,23 +267,26 @@ pub trait NodeExterior {
     }
 }
 
-pub trait Output
+pub trait Output<'a>
 where
-    Self: NodeInterior
+    Self: NodeInterior<'a>,
 {
     fn output_name() -> &'static str;
 
     fn output(state: State) -> Option<Attribute> {
-        Self::accept(state).evaluate() 
+       if let Some(state) = Self::accept(state).evaluate() {
+           Some(state.into())
+       } else {
+           None
+       }
     }
 
     fn resource() -> NodeResource {
         NodeResource::Output(
-            Self::output_name,
-            Self::output,
-            None,
-            None,
-        )
+            Self::output_name, 
+            Self::output, 
+            None, 
+            None)
     }
 }
 
@@ -273,11 +296,15 @@ pub trait Display {
     fn display(name: String, width: f32, ui: &imgui::Ui, state: &State);
 
     fn resource() -> NodeResource {
-        NodeResource::Display(
-            Self::display_name,
-            Self::display,
-            None
-        )
+        NodeResource::Display(Self::display_name, Self::display, None)
+    }
+
+    fn from_state(state: State) -> NodeResource {
+        if let Some(Attribute::Functions(Routines::Name(name))) = state.get("display_name") {
+            NodeResource::Display(name, Self::display, None)
+        } else {
+            NodeResource::Empty
+        }
     }
 }
 
@@ -287,57 +314,14 @@ pub trait Reducer {
     // Implementation returns the parameter they expect
     fn param_name() -> &'static str;
 
+    // Implementation reduces an attribute
+    fn reduce(attribute: Option<Attribute>) -> Option<Attribute>;
+    
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute);
+   
     fn parameter() -> NodeResource {
         NodeResource::Input(Self::param_name, None)
     }
-
-    fn resource_table_select() -> NodeResource 
-    where
-        Self: NodeExterior
-    {
-        NodeResource::Reducer(
-            Self::result_name,
-            Self::table_select,
-            Self::map,
-            Self::reduce,
-            (0, None),
-            None,
-            None,
-        )
-    }
-
-    fn resource_input() -> NodeResource 
-    where
-        Self: NodeExterior
-    {
-        NodeResource::Reducer(
-            Self::result_name,
-            Self::input,
-            Self::map,
-            Self::reduce,
-            (0, None),
-            None,
-            None,
-        )
-    }
-
-    fn resource() -> NodeResource 
-    where
-        Self: NodeExterior
-    {
-        NodeResource::Reducer(
-            Self::result_name,
-            Self::noop_display,
-            Self::map,
-            Self::reduce,
-            (0, None),
-            None,
-            None,
-        )
-    }
-
-    // Implementation reduces an attribute
-    fn reduce(attribute: Option<Attribute>) -> Option<Attribute>;
 
     fn select(state: State) -> Option<Attribute> {
         if let Some(v) = state.get(Self::param_name()) {
@@ -354,5 +338,67 @@ pub trait Reducer {
         } else {
             (0, None)
         }
+    }
+
+    fn from_state(state: State) -> NodeResource {
+        if let Some(Attribute::Functions(Routines::Name(result_name)))
+             = state.get("result_name") {
+            NodeResource::Reducer(
+                result_name,
+                Self::display,
+                Self::map,
+                Self::reduce,
+                (0, None),
+                None,
+                None
+            )
+        } else {
+            NodeResource::Empty
+        }
+    }
+
+    fn resource_table_select() -> NodeResource
+    where
+        Self: NodeExterior,
+    {
+        NodeResource::Reducer(
+            Self::result_name,
+            Self::table_select,
+            Self::map,
+            Self::reduce,
+            (0, None),
+            None,
+            None,
+        )
+    }
+
+    fn resource_input() -> NodeResource
+    where
+        Self: NodeExterior,
+    {
+        NodeResource::Reducer(
+            Self::result_name,
+            Self::input,
+            Self::map,
+            Self::reduce,
+            (0, None),
+            None,
+            None,
+        )
+    }
+
+    fn resource() -> NodeResource
+    where
+        Self: NodeExterior,
+    {
+        NodeResource::Reducer(
+            Self::result_name,
+            Self::noop_display,
+            Self::map,
+            Self::reduce,
+            (0, None),
+            None,
+            None,
+        )
     }
 }

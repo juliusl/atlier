@@ -1,3 +1,5 @@
+use specs::{Entities, System};
+
 use super::{Attribute, NodeResource, Output, visitor::{ NodeExterior, NodeInterior, NodeVisitor}};
 use crate::{system::{State, Value}};
 use std::{marker::PhantomData};
@@ -11,6 +13,7 @@ pub trait ExpressionFunc2<T> {
 }
 
 // FloatExpression is a data structure of float parameters for a receiving ExpresionFunc
+#[derive(Clone)]
 pub struct FloatExpression<V> 
 where
     V: ExpressionFunc2<f32>
@@ -35,11 +38,22 @@ where
 }
 
 // Implementing this adds an accept fn() to accept and evaluate visitors
-impl<V> NodeInterior for FloatExpression<V> 
+impl<'a, V> NodeInterior<'a> for FloatExpression<V> 
 where
-    V: ExpressionFunc2<f32> 
+    V: ExpressionFunc2<f32> + Clone
 {
     type Visitor = FloatExpression<V>;
+}
+
+impl<'a, V> System<'a> for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32>
+{
+    type SystemData = Entities<'a>;
+
+    fn run(&mut self, data: Self::SystemData) {
+        todo!()
+    }
 }
 
 
@@ -79,9 +93,9 @@ where
 
 /// By Implmenting `Output`, `NodeVisitor`, and `NodeInterior` the EditorResource can be generated
 /// This allows you to implement several different implementations of generic type `V` without needing to reimplement EditorResource methods for each variant
-impl<V> Output for FloatExpression<V>  
+impl<'a, V> Output<'a> for FloatExpression<V>  
 where
-    V: ExpressionFunc2<f32> 
+    V: ExpressionFunc2<f32> + Clone
 {
     fn output_name() -> &'static str {
         V::result_name()()
@@ -90,15 +104,33 @@ where
 
 impl<V> NodeVisitor for FloatExpression<V> 
 where
-    V: ExpressionFunc2<f32> 
+    V: ExpressionFunc2<f32> + Clone
 {
     // Evaluate the result of the visitor 
-    fn evaluate(&self) -> Option<Attribute> {
-        Some(Attribute::Literal(Value::Float(V::func()(self.lhs, self.rhs))))
+    fn evaluate(&self) -> Option<State> {
+        Some(Attribute::Literal(Value::Float(V::func()(self.lhs, self.rhs))).into())
+    }
+
+    fn call(&self, _: &str) -> Self {
+        self.clone()
     }
 }
 
+impl<V> Into<State> for FloatExpression<V> 
+where
+    V: ExpressionFunc2<f32> + Clone 
+{
+    fn into(self) -> State {
+        State::default()
+            .insert("lhs", Attribute::from(self.lhs))
+            .insert("rhs", Attribute::from(self.rhs))
+            .snapshot()
+    }
+}
+
+
 /// The `Add` node can output the sum of the `lhs` and `rhs` inputs
+#[derive(Clone)]
 pub struct Add;
 impl ExpressionFunc2<f32> for Add {
     fn title() -> fn()->&'static str {

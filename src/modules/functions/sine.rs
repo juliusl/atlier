@@ -29,4 +29,8 @@ impl Reducer for Sine {
             None
         }
     }
+
+    fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut crate::system::Attribute) {
+        Self::noop_display(label, width, ui, value)
+    }
 }

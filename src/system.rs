@@ -35,7 +35,6 @@ pub use font::monaco;
 pub use font::segoe_ui;
 
 pub use attribute::Attribute;
-
 pub trait App<'a> {
     fn get_window(&self) -> imgui::Window<'static, String>;
     fn show(&mut self, ui: &imgui::Ui);
@@ -51,11 +50,52 @@ pub enum Value {
     TextBuffer(String),
 }
 
+#[derive(Debug, Clone, Hash)]
+pub enum Routines {
+    Name(fn() -> &'static str),
+    Select(fn(state: State) -> (u64, Option<Attribute>)),
+    Reduce(fn(attribute: Option<Attribute>) -> Option<Attribute>),
+    Transform(fn(state: State) -> Option<Attribute>),
+    Next(fn(state: State) -> Option<State>),
+}
+
+impl From<fn() -> &'static str> for Routines {
+    fn from(f: fn() -> &'static str) -> Self {
+        Routines::Name(f)
+    }
+}
+
+impl From<fn(state: State) -> (u64, Option<Attribute>)> for Routines {
+    fn from(f: fn(state: State) -> (u64, Option<Attribute>)) -> Self {
+        Routines::Select(f)
+    }
+}
+
+impl From<fn(attribute: Option<Attribute>) -> Option<Attribute>> for Routines {
+    fn from(f: fn(attribute: Option<Attribute>) -> Option<Attribute>) -> Self {
+        Routines::Reduce(f)
+    }
+}
+
+impl From<fn(state: State) -> Option<Attribute>> for Routines {
+    fn from(f: fn(state: State) -> Option<Attribute>) -> Self {
+        Routines::Transform(f)
+    }
+}
+
+impl From<fn(state: State) -> Option<State>> for Routines {
+    fn from(f: fn(state: State) -> Option<State>) -> Self {
+        Routines::Next(f)
+    }
+}
+
 #[derive(Clone, Hash)]
-pub struct State(BTreeMap<String, Attribute>, Option<Vec<Update>>);
+pub struct State(BTreeMap<String, Attribute>, Option<Vec<Update>>, Option<BTreeMap<String, String>>);
 
 #[derive(Clone, Hash)]
 pub enum Update {
+    Namespace(String),
+    Assign(String, String),
     Insert(String, Attribute),
     Delete(String),
     Merge(BTreeMap<String, Attribute>),
@@ -63,7 +103,7 @@ pub enum Update {
 
 impl Default for State {
     fn default() -> Self {
-        Self(BTreeMap::default(), None)
+        Self(BTreeMap::default(), None, None)
     }
 }
 
@@ -92,38 +132,48 @@ impl State {
     /// `dispatch` returns a new state with a new message
     pub fn dispatch(&self, message: Update) -> Self {
         match self {
-            State(state, Some(updates)) => {
+            State(state, Some(updates), _) => {
                 let mut next = updates.clone();
                 next.push(message);
-                State(state.clone(), Some(next))
+                State(state.clone(), Some(next), None)
             }
-            State(state, None) => {
-                State(state.clone(), Some(vec![message]))
+            State(state, None, _) => {
+                State(state.clone(), Some(vec![message]), None)
             }
         }
     }
 
     /// `snapshot` returns a clone of state as-is w/o updates
     pub fn snapshot(&self) -> Self {
-        State(self.0.clone(), None)
+        State(self.0.clone(), None, self.2.clone())
     }
 
     /// `next_state` flattens any/all updates and returns a new State 
     pub fn next_state(&self) -> Self {
          let next_state = match self {
-            State(state, Some(updates)) => {
+            State(state, Some(updates), _) => {
                 let mut next = state.clone();
+
+                let mut namespace = String::default();
+
                 updates.iter().for_each(|u| 
                     match u {
+                        Update::Assign(key, value) => todo!(),
+                        Update::Namespace(ns) => {
+                            namespace = ns.to_owned();
+                        }
                         Update::Insert(key, value) => { 
-                            next.insert(key.clone(), value.clone());
+                            let key = format!("{}/{}", namespace, key);
+                            next.insert(key, value.clone());
                         }
                         Update::Delete(key) => {
-                            next.remove(key);
+                            let key = format!("{}/{}", namespace, key);
+                            next.remove(&key);
                         }
                         Update::Merge(map) => {
                             for (key, value) in map {
-                                next.insert(key.to_owned(), value.to_owned());
+                                let key = format!("{}/{}", namespace, key);
+                                next.insert(key, value.to_owned());
                             }
                         }
                     }
@@ -131,12 +181,16 @@ impl State {
 
                 next
             }
-            State(state, None) => {
+            State(state, None, _) => {
                 state.to_owned()
             }
         };
 
-        State(next_state, None)
+        State(next_state, None, None)
+    }
+
+    pub fn set_namespace(&self, ns: &str) -> Self {
+        self.dispatch(Update::Namespace(ns.to_string()))
     }
 
     /// `insert` is a helper method to dispatch an insert update
@@ -159,6 +213,40 @@ impl State {
     pub fn delete(&self, key: &str) -> Self {
         self.dispatch(Update::Delete(key.to_string()))
     }
+
+    /// `map` creates a clone of a subset of parameters from `State`
+    pub fn map(&self, parameters: &[&'static str]) -> Self {
+        let mut mapped = Self::default();
+        parameters
+            .iter()
+            .map(|p| (p, self.get(p)))
+            .filter_map(|p|match p {
+                (name, Some(attr)) => Some((name, attr)),
+                _ => None,
+            })
+            .for_each(|(n, a)| {
+                mapped = mapped.insert(*n, a);
+            });
+
+        mapped
+    }
+
+    /// `reduce` takes the current state and creates T
+    /// `T` is a Reducer that will reduce/format the parameters into the next State
+    pub fn reduce<T>(&self, reducer: fn(state: State, t: T) -> Self) -> Self 
+    where
+        T: Reducer + From<State>
+    {
+        reducer(self.snapshot(), T::from(self.clone()))
+    }
+
+    /// `visit` allows a visitor to initialize from this state
+    pub fn visit<'a, T>(&self) -> T::Visitor
+    where
+        T: NodeInterior<'a>
+    {
+        T::accept(self.clone())
+    }
 }
 
 impl Into<BTreeMap<String, Attribute>> for State {
@@ -169,7 +257,7 @@ impl Into<BTreeMap<String, Attribute>> for State {
 
 impl From<&BTreeMap<String, Attribute>> for State {
     fn from(state: &BTreeMap<String, Attribute>) -> Self {
-        State(state.clone(), None)
+        State(state.clone(), None, None)
     }
 }
 
