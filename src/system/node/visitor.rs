@@ -21,20 +21,23 @@ pub trait NodeVisitor
 where
     Self: Sized + Clone + Into<State>
 {
-    /// call a function by name
-    fn call(&self, name: &str) -> Self;
+    /// `Parameters` is the type passed into the `.call` `fn`
+    type Parameters;
 
-    // evaluate all calls and if a new state exists returns Some state
+    /// `call` a function by parameters
+    fn call(&self, params: Self::Parameters) -> Self;
+
+    // `evaluate` all calls and if a new state exists returns Some state
     fn evaluate(&self) -> Option<State>;
 
-    // update applies the next state and returns the result 
+    // `update` applies the next state to the current state and returns the resulting state
     fn update(&self, next: State) -> State {
         self.load()
             .merge(next)
             .next_state()
     }
 
-    // load returns the latest state
+    // `load` returns the latest state
     fn load(&self) -> State {
         Self::into(self.clone())
     }

@@ -36,11 +36,12 @@ impl<'a> System<'a> for ColorEditor {
 }
 
 impl NodeVisitor for ColorEditor {
+    
     fn evaluate(&self) -> Option<State> {
         todo!()
     }
 
-    fn call(&self, name: &str) -> Self
+    fn call(&self, name: Self::Parameters) -> Self
     where
             Self: Sized + Clone 
     {
@@ -49,6 +50,8 @@ impl NodeVisitor for ColorEditor {
             _ => self.clone()
         }
     }
+
+    type Parameters = &'static str;
 }
 
 impl Into<State> for ColorEditor {

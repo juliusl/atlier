@@ -106,12 +106,14 @@ impl<V> NodeVisitor for FloatExpression<V>
 where
     V: ExpressionFunc2<f32> + Clone
 {
+    type Parameters = &'static str;
+
     // Evaluate the result of the visitor 
     fn evaluate(&self) -> Option<State> {
         Some(Attribute::Literal(Value::Float(V::func()(self.lhs, self.rhs))).into())
     }
 
-    fn call(&self, _: &str) -> Self {
+    fn call(&self, _: Self::Parameters) -> Self {
         self.clone()
     }
 }

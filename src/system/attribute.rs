@@ -65,12 +65,14 @@ impl Reducer for Attribute {
 }
 
 impl NodeVisitor for Attribute {
+    type Parameters = &'static str; 
+
     fn evaluate(&self) -> Option<State> {
         let state: State = self.clone().into();
         Some(state.into())
     }
 
-    fn call(&self, name: &str) -> Self {
+    fn call(&self, name: Self::Parameters) -> Self {
         todo!()
     }
 }
