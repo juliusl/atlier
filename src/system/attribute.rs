@@ -64,7 +64,7 @@ impl Reducer for Attribute {
     }
 }
 
-impl NodeVisitor for Attribute {
+impl<'a> NodeVisitor<'a> for Attribute {
     type Parameters = &'static str; 
 
     fn evaluate(&self) -> Option<State> {
@@ -94,7 +94,6 @@ impl Into<State> for Attribute {
         let state = State::default();
         let state = match &self {
             Attribute::Literal(literal) => {
-            let state = state.set_namespace("attribute/literal");
             match literal {
                 Value::Float(_) => state.insert("float", self),
                 Value::Int(_) => state.insert("int", self),
@@ -105,7 +104,6 @@ impl Into<State> for Attribute {
             }
         },
             Attribute::Functions(routines) => {
-                let state = state.set_namespace("attribute/functions");
                 match routines {
                 Routines::Name(_) => state.insert("name", self),
                 Routines::Select(_) => state.insert("select", self),
@@ -114,10 +112,8 @@ impl Into<State> for Attribute {
                 Routines::Next(_) => state.insert("next", self),
             }},
             Attribute::Map(_) => { 
-                let state = state.set_namespace("attribute/map");
                 state.insert("map", self) },
             Attribute::Error(_) => {
-                let state = state.set_namespace("attribute/error");
                 state.insert("error", self)},
             Attribute::Empty => state,
         };

@@ -1,34 +1,37 @@
-mod window;
+mod attribute;
+mod font;
 mod gui;
 mod node;
-mod font;
-mod attribute;
+mod window;
 
-use window::WindowContext;
-use window::Hardware;
+use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
-use imgui::FontSource;
+use imnodes::EditorContext;
 use std::collections::BTreeMap;
 use std::hash::Hash;
 use std::hash::Hasher;
+use window::Hardware;
+use window::WindowContext;
 
-pub use gui::GUI;
-pub use gui::GUIUpdate;
 pub use gui::ControlState;
+pub use gui::GUIUpdate;
+pub use gui::GUI;
 
-pub use node::NodeModule;
-pub use node::NodeEditor;
-pub use node::NodeResource;
-pub use node::EditorResource;
 pub use node::expression;
-pub use node::NodeVisitor;
-pub use node::NodeInterior;
-pub use node::NodeExterior;
-pub use node::Reducer;
-pub use node::Display;
-pub use node::Output;
 pub use node::expression::*;
+pub use node::Display;
+pub use node::EditorResource;
+pub use node::NodeEditor;
+pub use node::NodeExterior;
+pub use node::NodeInterior;
+pub use node::NodeModule;
+pub use node::NodeResource;
+pub use node::NodeVisitor;
+pub use node::Output;
+pub use node::Reducer;
+pub use node::Module;
+pub use node::Initializer;
 
 pub use font::cascadia_code;
 pub use font::monaco;
@@ -90,12 +93,13 @@ impl From<fn(state: State) -> Option<State>> for Routines {
 }
 
 #[derive(Clone, Hash)]
-pub struct State(BTreeMap<String, Attribute>, Option<Vec<Update>>, Option<BTreeMap<String, String>>);
+pub struct State(
+    BTreeMap<String, Attribute>,
+    Option<Vec<Update>>,
+);
 
 #[derive(Clone, Hash)]
 pub enum Update {
-    Namespace(String),
-    Assign(String, String),
     Insert(String, Attribute),
     Delete(String),
     Merge(BTreeMap<String, Attribute>),
@@ -103,7 +107,45 @@ pub enum Update {
 
 impl Default for State {
     fn default() -> Self {
-        Self(BTreeMap::default(), None, None)
+        Self(BTreeMap::default(), None)
+    }
+}
+
+impl<'a> NodeVisitor<'a> for State {
+    type Parameters = Update;
+
+    fn call(&self, params: Self::Parameters) -> Self {
+        let State(mut next,..) = self.clone();
+        match params {
+            Update::Insert(key, value) => {
+                next.insert(key, value.clone());
+            }
+            Update::Delete(key) => {
+                next.remove(&key);
+            }
+            Update::Merge(map) => {
+                for (key, value) in map {
+                    next.insert(key, value.to_owned());
+                }
+            }
+            _ => {}
+        };
+
+        self.merge(next)
+    }
+
+    fn evaluate(&self) -> Option<State> {
+        match &self {
+            State(_, Some(updates)) => {
+                let mut next = self.clone();
+                updates
+                .iter()
+                .for_each(|u| next = next.call(u.clone()));
+
+                Some(next)
+            }
+            _ => None
+        }
     }
 }
 
@@ -111,10 +153,11 @@ impl State {
     /// `get` returns the latest version of the attribute
     /// `get` will flatten all messages into a state before getting the next value. This has no side effects on the original collection.
     pub fn get(&self, key: &'static str) -> Option<Attribute> {
-        let State(map, ..) = self.next_state();
-
-        if let Some(v) = map.get(key) {
-            Some(v.to_owned())
+        if let Some(State(map, ..)) = self.clone().evaluate() {
+            match map.get(key) {
+                Some(attr) => Some(attr.clone()),
+                _ => None
+            }
         } else {
             None
         }
@@ -129,82 +172,35 @@ impl State {
         hasher.finish()
     }
 
+    /// `snapshot` returns a clone of state as-is w/o updates
+    pub fn snapshot(&self) -> Self {
+        State(self.0.clone(), None)
+    }
+
     /// `dispatch` returns a new state with a new message
     pub fn dispatch(&self, message: Update) -> Self {
         match self {
-            State(state, Some(updates), _) => {
+            State(state, Some(updates)) => {
                 let mut next = updates.clone();
                 next.push(message);
-                State(state.clone(), Some(next), None)
+                State(state.clone(), Some(next))
             }
-            State(state, None, _) => {
-                State(state.clone(), Some(vec![message]), None)
-            }
+            State(state, None) => State(state.clone(), Some(vec![message])),
         }
     }
 
-    /// `snapshot` returns a clone of state as-is w/o updates
-    pub fn snapshot(&self) -> Self {
-        State(self.0.clone(), None, self.2.clone())
-    }
-
-    /// `next_state` flattens any/all updates and returns a new State 
-    pub fn next_state(&self) -> Self {
-         let next_state = match self {
-            State(state, Some(updates), _) => {
-                let mut next = state.clone();
-
-                let mut namespace = String::default();
-
-                updates.iter().for_each(|u| 
-                    match u {
-                        Update::Assign(key, value) => todo!(),
-                        Update::Namespace(ns) => {
-                            namespace = ns.to_owned();
-                        }
-                        Update::Insert(key, value) => { 
-                            let key = format!("{}/{}", namespace, key);
-                            next.insert(key, value.clone());
-                        }
-                        Update::Delete(key) => {
-                            let key = format!("{}/{}", namespace, key);
-                            next.remove(&key);
-                        }
-                        Update::Merge(map) => {
-                            for (key, value) in map {
-                                let key = format!("{}/{}", namespace, key);
-                                next.insert(key, value.to_owned());
-                            }
-                        }
-                    }
-                );
-
-                next
-            }
-            State(state, None, _) => {
-                state.to_owned()
-            }
-        };
-
-        State(next_state, None, None)
-    }
-
-    pub fn set_namespace(&self, ns: &str) -> Self {
-        self.dispatch(Update::Namespace(ns.to_string()))
-    }
-
     /// `insert` is a helper method to dispatch an insert update
-    pub fn insert<V>(&self, key: &str, value: V) -> Self 
-    where 
-        V: Into<Attribute>
+    pub fn insert<V>(&self, key: &str, value: V) -> Self
+    where
+        V: Into<Attribute>,
     {
         self.dispatch(Update::Insert(key.to_string(), value.into()))
     }
 
     /// `merge` is a helper method to dispatch a merge update
-    pub fn merge<M>(&self, map: M) -> Self 
+    pub fn merge<M>(&self, map: M) -> Self
     where
-        M: Into<BTreeMap<String, Attribute>>
+        M: Into<BTreeMap<String, Attribute>>,
     {
         self.dispatch(Update::Merge(map.into()))
     }
@@ -220,7 +216,7 @@ impl State {
         parameters
             .iter()
             .map(|p| (p, self.get(p)))
-            .filter_map(|p|match p {
+            .filter_map(|p| match p {
                 (name, Some(attr)) => Some((name, attr)),
                 _ => None,
             })
@@ -231,11 +227,15 @@ impl State {
         mapped
     }
 
-    /// `reduce` takes the current state and creates T
-    /// `T` is a Reducer that will reduce/format the parameters into the next State
-    pub fn reduce<T>(&self, reducer: fn(state: State, t: T) -> Self) -> Self 
+    /// `select` inserts a Select routine at `key`
+    pub fn select(&self, key: &str, select: fn(State) -> (u64, Option<Attribute>)) -> Self {
+        self.insert(key, Attribute::Functions(Routines::Select(select)))
+    }
+
+    /// `reduce` applies the reducer fn and returns the next State
+    pub fn reduce<T>(&self, reducer: fn(state: State, t: T) -> Self) -> Self
     where
-        T: Reducer + From<State>
+        T: Reducer + From<State>,
     {
         reducer(self.snapshot(), T::from(self.clone()))
     }
@@ -243,7 +243,7 @@ impl State {
     /// `visit` allows a visitor to initialize from this state
     pub fn visit<'a, T>(&self) -> T::Visitor
     where
-        T: NodeInterior<'a>
+        T: NodeInterior<'a>,
     {
         T::accept(self.clone())
     }
@@ -251,13 +251,17 @@ impl State {
 
 impl Into<BTreeMap<String, Attribute>> for State {
     fn into(self) -> BTreeMap<String, Attribute> {
-        self.next_state().0
+        if let Some(next) = self.clone().evaluate() {
+            next.0
+        } else {
+            self.0
+        }
     }
 }
 
 impl From<&BTreeMap<String, Attribute>> for State {
     fn from(state: &BTreeMap<String, Attribute>) -> Self {
-        State(state.clone(), None, None)
+        State(state.clone(), None)
     }
 }
 
@@ -266,41 +270,37 @@ fn test_dispatch() {
     let state = State::default();
     let old = state.get_hash_code();
 
-    let mut state = state
-        .insert("test", 10.0)
-        .insert("test", 14.0)
-        .next_state();
+    let state = state.insert("test", 10.0).insert("test", 14.0).evaluate().unwrap();
 
     let new = state.get_hash_code();
-    assert_ne!(old, new); 
+    assert_ne!(old, new);
 
     if let Some(v) = state.get("test") {
         assert_eq!(14.0, v.to_owned().into());
     }
 
-    state = state
-        .merge(State::default()
-        .insert("test", 17.0)
-        .insert("test2", 18.0))
-        .next_state();
+    let evaluated_state = state
+        .merge(State::default().insert("test", 17.0).insert("test2", 18.0))
+        .evaluate().unwrap();
 
-    let newest = state.get_hash_code();
-    assert_ne!(new, newest); 
+    let newest = evaluated_state.get_hash_code();
+    assert_ne!(new, newest);
 
     if let Some(v) = state.get("test") {
-        assert_eq!(17.0, v.to_owned().into()); 
+        assert_eq!(17.0, v.to_owned().into());
     }
 
-    state = state
-        .merge(State::default()
-            .insert("test", 17.0)
-            .insert("test2", 18.0))
-        .next_state();
+    let evaluated_state = state
+        .merge(State::default().insert("test", 17.0).insert("test2", 18.0))
+        .evaluate().expect("was just created so it should be evaluated");
 
-    let latest = state.get_hash_code();
-    assert_eq!(newest, latest, "The hash code should not change after an inert merge");
-    
-    state = state.delete("test2"); 
+    let latest = evaluated_state.get_hash_code();
+    assert_eq!(
+        newest, latest,
+        "The hash code should not change after an inert merge"
+    );
+
+    let state = state.delete("test2");
     assert!(state.get("test2").is_none())
 }
 
@@ -310,7 +310,7 @@ impl Hash for Value {
             Value::Float(f) => f.to_bits().hash(state),
             Value::Int(i) => i.hash(state),
             Value::Bool(b) => b.hash(state),
-            Value::FloatRange(f, fm, fmx) => { 
+            Value::FloatRange(f, fm, fmx) => {
                 f.to_bits().hash(state);
                 fm.to_bits().hash(state);
                 fmx.to_bits().hash(state);
@@ -319,7 +319,7 @@ impl Hash for Value {
                 i.hash(state);
                 im.hash(state);
                 imx.hash(state);
-            },
+            }
             Value::TextBuffer(txt) => txt.hash(state),
         };
     }
@@ -331,24 +331,31 @@ impl Into<Attribute> for Value {
     }
 }
 
-pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>) ->  (winit::event_loop::EventLoop<()>, GUI<A>) {
+pub fn new_gui_system<'a, A>(
+    title: &str,
+    width: f64,
+    height: f64,
+    apps: Vec<A>,
+) -> (winit::event_loop::EventLoop<()>, GUI<A>) {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
         if let Hardware {
-            window_context: WindowContext{
-                surface: Some(surface),
-                window: Some(window),
-                hidpi_scale_factor: Some(hidpi_scale_factor),
-                font_size: Some(font_size),
-                event_loop: Some(event_loop),
-                instance: Some(instance),
-                physical_size: Some(physical_size)
-            },
+            window_context:
+                WindowContext {
+                    surface: Some(surface),
+                    window: Some(window),
+                    hidpi_scale_factor: Some(hidpi_scale_factor),
+                    font_size: Some(font_size),
+                    event_loop: Some(event_loop),
+                    instance: Some(instance),
+                    physical_size: Some(physical_size),
+                },
             device: Some(device),
             queue: Some(queue),
             surface_desc: Some(surface_desc),
             adapter: Some(adapater),
-        } = Hardware::from(window_context) {
+        } = Hardware::from(window_context)
+        {
             surface.configure(&device, &surface_desc);
             // Set up dear imgui
             let mut imgui = imgui::Context::create();
@@ -362,7 +369,7 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
                 imgui_winit_support::HiDpiMode::Default,
             );
             setup_imgui.set_ini_filename(None);
-        
+
             setup_imgui.io_mut().font_global_scale = (1.0 / hidpi_scale_factor) as f32;
 
             if let Some(cascadia_code) = cascadia_code() {
@@ -420,13 +427,8 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
                 texture_format: surface_desc.format,
                 ..Default::default()
             };
-            
-            let renderer =Renderer::new(
-                setup_imgui, 
-                &device, 
-                &queue, 
-                renderer_config);
-            
+
+            let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
 
             let gui = GUI {
                 imgui: imgui,

@@ -12,6 +12,10 @@ pub use resource::NodeResource;
 pub mod expression;
 pub use expression::*;
 
+mod module;
+pub use module::Initializer;
+pub use module::Module;
+
 mod visitor;
 pub use visitor::*;
 

@@ -40,7 +40,7 @@ where
 // Implementing this adds an accept fn() to accept and evaluate visitors
 impl<'a, V> NodeInterior<'a> for FloatExpression<V> 
 where
-    V: ExpressionFunc2<f32> + Clone
+    V: ExpressionFunc2<f32> + Clone + 'a
 {
     type Visitor = FloatExpression<V>;
 }
@@ -95,16 +95,16 @@ where
 /// This allows you to implement several different implementations of generic type `V` without needing to reimplement EditorResource methods for each variant
 impl<'a, V> Output<'a> for FloatExpression<V>  
 where
-    V: ExpressionFunc2<f32> + Clone
+    V: ExpressionFunc2<f32> + Clone + 'a
 {
     fn output_name() -> &'static str {
         V::result_name()()
     }
 }
 
-impl<V> NodeVisitor for FloatExpression<V> 
+impl<'a, V> NodeVisitor<'a> for FloatExpression<V> 
 where
-    V: ExpressionFunc2<f32> + Clone
+    V: ExpressionFunc2<f32> + Clone + 'a
 {
     type Parameters = &'static str;
 

@@ -2,21 +2,35 @@ use atlier::prelude::*;
 use specs::prelude::*;
 use winit::event_loop::ControlFlow;
 
+struct Color {
+    r: f32,
+    g: f32,
+    b: f32, 
+}
+
 fn main() {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
+
+    let state = State::default()
+        .insert("lhs", 0.00)
+        .insert("rhs", 0.00)
+        .select("lhs", |state| 
+            state.visit::<Initializer>().returns("lhs"))
+        .select("rhs", |state| 
+            state
+            .visit::<Initializer>()
+            .returns("rhs"));
 
     let state =   State::default()
         .insert("blue", [0.00, 0.00, 255.00])
         .insert("green", [0.00, 0.00, 255.00])
         .insert("red", [0.00, 0.00, 255.00]);
 
-    let color_editor = state.map(&["red", "green", "blue"])
-            .reduce::<ColorEditor>(|s, ed| {
-                ed.update(s)
-            })
-        .visit::<ColorEditor>()
-        .call("display");
+    let color_editor = state
+            .map(&["red", "green", "blue"])
+            .visit::<ColorEditor>()
+            .call("display");
 
     let app = NodeEditor::new("node-editor").module(
         vec![

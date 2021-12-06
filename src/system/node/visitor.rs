@@ -6,10 +6,8 @@ use crate::system::{Routines, State, Value};
 
 use super::{Attribute, EditorResource, NodeResource};
 
-// These are traits to help define different types of nodes that can be used from the editor
-
 pub trait NodeInterior<'a> {
-    type Visitor: NodeVisitor + From<State> + System<'a>;
+    type Visitor: NodeVisitor<'a> + From<State> + System<'a>;
 
     /// `accept` returns an instance of the Visitor type, from the passed in state
     fn accept(state: State) -> Self::Visitor {
@@ -17,9 +15,9 @@ pub trait NodeInterior<'a> {
     }
 }
 
-pub trait NodeVisitor
+pub trait NodeVisitor<'a>
 where
-    Self: Sized + Clone + Into<State>
+    Self: Sized + 'a + Clone,
 {
     /// `Parameters` is the type passed into the `.call` `fn`
     type Parameters;
@@ -27,19 +25,16 @@ where
     /// `call` a function by parameters
     fn call(&self, params: Self::Parameters) -> Self;
 
-    // `evaluate` all calls and if a new state exists returns Some state
+    /// `evaluate` all calls and if a new state exists returns Some state
     fn evaluate(&self) -> Option<State>;
 
-    // `update` applies the next state to the current state and returns the resulting state
-    fn update(&self, next: State) -> State {
-        self.load()
-            .merge(next)
-            .next_state()
-    }
-
-    // `load` returns the latest state
-    fn load(&self) -> State {
-        Self::into(self.clone())
+    /// `returns` evaluates the visitor and returns a hash code and attribute
+    fn returns(&mut self, key: &'static str) -> (u64, Option<Attribute>) {
+        if let Some(next) = self.evaluate() {
+            (next.get_hash_code(), next.get(key))
+        } else {
+            (0, None)
+        }
     }
 }
 
@@ -277,19 +272,15 @@ where
     fn output_name() -> &'static str;
 
     fn output(state: State) -> Option<Attribute> {
-       if let Some(state) = Self::accept(state).evaluate() {
-           Some(state.into())
-       } else {
-           None
-       }
+        if let Some(state) = Self::accept(state).evaluate() {
+            Some(state.into())
+        } else {
+            None
+        }
     }
 
     fn resource() -> NodeResource {
-        NodeResource::Output(
-            Self::output_name, 
-            Self::output, 
-            None, 
-            None)
+        NodeResource::Output(Self::output_name, Self::output, None, None)
     }
 }
 
@@ -319,9 +310,9 @@ pub trait Reducer {
 
     // Implementation reduces an attribute
     fn reduce(attribute: Option<Attribute>) -> Option<Attribute>;
-    
+
     fn display(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute);
-   
+
     fn parameter() -> NodeResource {
         NodeResource::Input(Self::param_name, None)
     }
@@ -344,8 +335,7 @@ pub trait Reducer {
     }
 
     fn from_state(state: State) -> NodeResource {
-        if let Some(Attribute::Functions(Routines::Name(result_name)))
-             = state.get("result_name") {
+        if let Some(Attribute::Functions(Routines::Name(result_name))) = state.get("result_name") {
             NodeResource::Reducer(
                 result_name,
                 Self::display,
@@ -353,7 +343,7 @@ pub trait Reducer {
                 Self::reduce,
                 (0, None),
                 None,
-                None
+                None,
             )
         } else {
             NodeResource::Empty

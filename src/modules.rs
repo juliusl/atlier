@@ -7,3 +7,5 @@ pub use functions::Time;
 
 mod graphics;
 pub use graphics::ColorEditor;
+
+mod editor;

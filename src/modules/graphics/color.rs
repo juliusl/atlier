@@ -35,7 +35,8 @@ impl<'a> System<'a> for ColorEditor {
     }
 }
 
-impl NodeVisitor for ColorEditor {
+impl<'a> NodeVisitor<'a> for ColorEditor {
+    type Parameters = &'static str;
     
     fn evaluate(&self) -> Option<State> {
         todo!()
@@ -50,8 +51,6 @@ impl NodeVisitor for ColorEditor {
             _ => self.clone()
         }
     }
-
-    type Parameters = &'static str;
 }
 
 impl Into<State> for ColorEditor {

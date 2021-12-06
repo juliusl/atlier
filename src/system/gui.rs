@@ -4,7 +4,6 @@ use specs::prelude::*;
 use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
-
 pub struct GUI<A> {
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
@@ -36,22 +35,19 @@ pub struct ControlState {
 }
 impl Default for ControlState {
     fn default() -> Self {
-        ControlState {
-            control_flow: None
-        }
+        ControlState { control_flow: None }
     }
 }
 
 #[derive(SystemData)]
-pub struct GUISystemData<'a>
-{
-    control_state: Write<'a, ControlState>, 
+pub struct GUISystemData<'a> {
+    control_state: Write<'a, ControlState>,
     update: ReadStorage<'a, GUIUpdate>,
 }
 
 impl<'a, A> System<'a> for GUI<A>
-where 
-    A: crate::App<'a>
+where
+    A: crate::App<'a> + 'a,
 {
     type SystemData = GUISystemData<'a>;
 
@@ -150,8 +146,9 @@ where
                 }
                 _ => (),
             }
-        
-            self.platform.handle_event(self.imgui.io_mut(), &self.window, &event);
+
+            self.platform
+                .handle_event(self.imgui.io_mut(), &self.window, &event);
         }
     }
 }
