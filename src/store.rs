@@ -4,6 +4,7 @@ use std::{
 };
 
 /// Store is a graph of nodes that store a value of T and the links to T
+#[derive(Clone)]
 pub struct Store<T>
 where
     T: Hash + Clone,
@@ -37,10 +38,15 @@ where
     T: Hash + Clone,
 {
     /// `node` adds a node to the underlying graph for `val`
+    /// If val is already a node, then no changes are made
     pub fn node(&self, val: T) -> Self {
         let mut next = self.nodes.clone();
 
-        next.insert(Self::get_hash_code(val.clone()), (val, HashSet::new()));
+        let hash_code = Self::get_hash_code(val.clone());
+
+        if !next.contains_key(&hash_code) {
+            next.insert(hash_code, (val, HashSet::new()));
+        }
 
         Self { nodes: next }
     }
@@ -208,9 +214,10 @@ fn test_store() {
 
 #[derive(Default, Clone, Hash)]
 struct Indexer(String, u64);
+
 /// You can declare the links even if they don't exist yet..
 /// And then when it does exist, the walk should work..
-/// 
+///
 /// You can speculatively declare links on the store.
 /// ```
 /// let store = store
@@ -229,10 +236,11 @@ struct Indexer(String, u64);
 /// ```
 /// let mut store = store.node("component");
 /// if (input) {
-///   store = store.node("input"); 
+///   store = store.node("input");
 /// }
 /// ```
-/// 
+
+#[test]
 fn test_indexer() {
     let indexer = Store::<Indexer>::default();
 
