@@ -4,12 +4,28 @@ use std::{
 };
 
 /// Store is a graph of nodes that store a value of T and the links to T
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Store<T>
 where
     T: Hash + Clone,
 {
     nodes: HashMap<u64, (T, HashSet<u64>)>,
+}
+
+impl<T> Hash for Store<T> 
+where
+    T: Hash + Clone,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+
+        self.nodes.iter().for_each(|e| {
+            let (key, (value, ..)) = e; 
+            {
+                key.hash(state);
+                value.hash(state); 
+            }
+        });
+    }
 }
 
 impl<T> Default for Store<T>

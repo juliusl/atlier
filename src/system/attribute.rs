@@ -2,13 +2,16 @@ use std::{collections::BTreeMap,};
 
 use specs::{Entities, System};
 
+use crate::store::Store;
+
 use super::{EditorResource, NodeExterior, NodeInterior, NodeResource, NodeVisitor, Reducer, Routines, State, Value};
 
 #[derive(Debug, Clone, Hash)]
 pub enum Attribute {
     Literal(Value),
     Functions(Routines),
-    Map(BTreeMap<String, Attribute>),
+    OrderedMap(BTreeMap<String, Attribute>),
+    Graph(Store<Attribute>),
     Empty,
     Error(String),
 }
@@ -111,11 +114,12 @@ impl Into<State> for Attribute {
                 Routines::Transform(_) => state.insert("transform", self),
                 Routines::Next(_) => state.insert("next", self),
             }},
-            Attribute::Map(_) => { 
+            Attribute::OrderedMap(_) => { 
                 state.insert("map", self) },
             Attribute::Error(_) => {
                 state.insert("error", self)},
             Attribute::Empty => state,
+            Attribute::Graph(_) => todo!(),
         };
 
         state
@@ -194,13 +198,13 @@ impl From<&str> for Attribute {
 
 impl From<&BTreeMap<String, Attribute>> for Attribute {
     fn from(m: &BTreeMap<String, Attribute>) -> Self {
-        Attribute::Map(m.to_owned())
+        Attribute::OrderedMap(m.to_owned())
     }
 }
 
 impl From<State> for Attribute {
     fn from(s: State) -> Self {
-        Attribute::Map(s.into())
+        Attribute::OrderedMap(s.into())
     }
 }
 
@@ -224,10 +228,11 @@ impl Attribute {
                 Value::IntRange(_, min, max) => Attribute::from([i32::default(), *min, *max]),
                 Value::TextBuffer(_) => Attribute::from(String::new()),
             },
-            Attribute::Map(_) => Attribute::from(&BTreeMap::new()),
+            Attribute::OrderedMap(_) => Attribute::from(&BTreeMap::new()),
             Attribute::Error(msg) => Attribute::Error(msg.clone()),
             Attribute::Empty => Attribute::Empty,
             Attribute::Functions(_) => todo!(),
+            Attribute::Graph(_) => todo!(),
         }
     }
 }

@@ -52,7 +52,7 @@ pub enum NodeResource {
 
 impl From<State> for NodeResource {
     fn from(state: State) -> Self {
-        if let Some(Attribute::Map(map)) = state.get("Title") {
+        if let Some(Attribute::OrderedMap(map)) = state.get("Title") {
             let resource = if let Some(Attribute::Functions(Routines::Name(name))) = map.get("Name") {
                 NodeResource::Title(name())
             } else {
@@ -131,7 +131,7 @@ impl NodeResource {
             match match match outputid_to_nodeid_index.get(output_pin_id) {
                 // First check to see if we have the output node
                 Some(output_node_id) => match &nodeid_to_dictionary.get(output_node_id) {
-                    Some(Attribute::Map(output_values)) => Some(output_values),
+                    Some(Attribute::OrderedMap(output_values)) => Some(output_values),
                     _ => None,
                 },
                 None => None,
@@ -144,14 +144,14 @@ impl NodeResource {
                     // Then update the state of the input node and add that value to it's state at the entry of the connected input
                     match inputid_to_nodeid_index.get(input_pin_id) {
                         Some(input_node_id) => match &nodeid_to_dictionary.get(input_node_id) {
-                            Some(Attribute::Map(input_values)) => {
+                            Some(Attribute::OrderedMap(input_values)) => {
                                 let mut updated_input_values = input_values.clone();
                                 updated_input_values
                                     .insert(input_name.to_string(), output_val.clone());
 
                                 nodeid_to_dictionary.insert(
                                     *input_node_id,
-                                    Attribute::Map(updated_input_values),
+                                    Attribute::OrderedMap(updated_input_values),
                                 );
                             }
                             _ => (),
@@ -241,7 +241,7 @@ impl NodeResource {
                 _ => {}
             });
 
-            index.insert(*id, Attribute::Map(attribute_dictionary));
+            index.insert(*id, Attribute::OrderedMap(attribute_dictionary));
         }
 
         index

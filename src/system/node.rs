@@ -110,7 +110,7 @@ impl<'a> NodeModule {
                 id: Some(nodeid), ..
             } = res
             {
-                if let Some(Attribute::Map(m)) = map.get(&nodeid) {
+                if let Some(Attribute::OrderedMap(m)) = map.get(&nodeid) {
                     return Some(State::from(m));
                 } else {
                     return None;
@@ -202,7 +202,7 @@ impl<'a> EditorComponent for NodeModule {
                                                 if let Some(node_id_token) =
                                                     imgui::TreeNode::new(tree_label).push(ui)
                                                 {
-                                                    if let Attribute::Map(map) = v {
+                                                    if let Attribute::OrderedMap(map) = v {
                                                         for (k, v) in map {
                                                             if let Some(dictionary_value_token) =
                                                                 imgui::TreeNode::new(k).push(ui)
@@ -286,7 +286,7 @@ impl<'a> EditorComponent for NodeModule {
                     .iter()
                     .map(|n| {
                         if let (_, Some(state)) = &self.state {
-                            if let Some(Attribute::Map(state)) = state.get(nodeid) {
+                            if let Some(Attribute::OrderedMap(state)) = state.get(nodeid) {
                                 match n {
                                     NodeResource::Output(v, func, _, i) => {
                                         let next = NodeResource::Output(

@@ -155,7 +155,7 @@ pub trait NodeExterior {
                     imgui::Slider::new(label, min.clone(), max.clone()).build(ui, v);
                 }
             },
-            Attribute::Map(map) => {
+            Attribute::OrderedMap(map) => {
                 ui.spacing();
                 for (name, value) in map {
                     let nested = format!("{}/{}", label, name);
@@ -171,7 +171,7 @@ pub trait NodeExterior {
     where
         Self: Reducer,
     {
-        if let Attribute::Map(map) = value {
+        if let Attribute::OrderedMap(map) = value {
             if let Some(table_token) = ui.begin_table_header_with_sizing(
                 label,
                 [
@@ -193,7 +193,7 @@ pub trait NodeExterior {
                         {
                             ui.set_item_default_focus();
                         }
-                    } else if let Attribute::Map(map) = value {
+                    } else if let Attribute::OrderedMap(map) = value {
                         if let Some(Attribute::Literal(Value::Bool(selected))) =
                             map.get_mut("selected")
                         {
@@ -229,7 +229,7 @@ pub trait NodeExterior {
     }
 
     fn select(label: String, width: f32, ui: &imgui::Ui, value: &mut Attribute) {
-        if let Attribute::Map(map) = value {
+        if let Attribute::OrderedMap(map) = value {
             let selected = map.iter().find(|p| {
                 if let (_, Attribute::Literal(Value::Bool(selected))) = p {
                     *selected
