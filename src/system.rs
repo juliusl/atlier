@@ -128,7 +128,6 @@ impl<'a> NodeVisitor<'a> for State {
                     next.insert(key, value.to_owned());
                 }
             }
-            _ => {}
         };
 
         self.merge(next)
@@ -177,24 +176,12 @@ impl State {
         State(self.0.clone(), None)
     }
 
-    /// `dispatch` returns a new state with a new message
-    pub fn dispatch(&self, message: Update) -> Self {
-        match self {
-            State(state, Some(updates)) => {
-                let mut next = updates.clone();
-                next.push(message);
-                State(state.clone(), Some(next))
-            }
-            State(state, None) => State(state.clone(), Some(vec![message])),
-        }
-    }
-
     /// `insert` is a helper method to dispatch an insert update
     pub fn insert<V>(&self, key: &str, value: V) -> Self
     where
         V: Into<Attribute>,
     {
-        self.dispatch(Update::Insert(key.to_string(), value.into()))
+        self.call(Update::Insert(key.to_string(), value.into()))
     }
 
     /// `merge` is a helper method to dispatch a merge update
@@ -202,12 +189,12 @@ impl State {
     where
         M: Into<BTreeMap<String, Attribute>>,
     {
-        self.dispatch(Update::Merge(map.into()))
+        self.call(Update::Merge(map.into()))
     }
 
     /// `delete` is a helper method to dispatch a delete update
     pub fn delete(&self, key: &str) -> Self {
-        self.dispatch(Update::Delete(key.to_string()))
+        self.call(Update::Delete(key.to_string()))
     }
 
     /// `map` creates a clone of a subset of parameters from `State`
