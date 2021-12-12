@@ -3,7 +3,9 @@
 pub enum FSNode {
     Root,
     Volume(&'static str),
-    Mount(String),
+    Mount(&'static str, u64),
+    Record(&'static str, &'static str),
+    File(&'static str),
 }
 
 impl Default for FSNode {

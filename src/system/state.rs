@@ -24,7 +24,7 @@ impl Into<FSNode> for State {
     fn into(self) -> FSNode {
         let hash_code = self.get_hash_code();
 
-        FSNode::Mount(format!("state_{}", hash_code))
+        FSNode::Mount("state", hash_code)
     }
 }
 

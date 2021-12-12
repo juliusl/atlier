@@ -60,8 +60,8 @@ where
     /// `get_store` returns the current store
     fn get_store(&mut self) -> Store<Self::Node>;
 
-    /// `update` updates the current store and returns `Self`
-    fn update(&mut self, next: Store<Self::Node>) -> Self; 
+    /// `set_store` sets the current store
+    fn set_store(&mut self, next: Store<Self::Node>) -> Self; 
 
     /// `new` initalizes a new system from application `T`
     fn new<T>(app: T) -> Self 
@@ -76,23 +76,41 @@ where
         .edge_node(app.clone())
         .edge_link(app.clone(), new_core_system.clone().into());
 
-       new_core_system.clone().update(next)
+       new_core_system.clone().set_store(next)
     }
 
-    /// `install_tooling` adds an edge node for the tool
-    fn install_tooling<T>(&mut self, tooling: T) -> Self
+    /// `module` adds an edge node for the module
+    fn with<T>(&mut self, module: T) -> Self
     where
         Self: Into<Self::Node>,
         T: Into<Self::Node> + Clone,
     {
         let next = self.get_store();
-        let tool_edge = tooling.clone();
+        let tool_edge = module.clone();
         let next = next.node(self.clone().into()).edge_node(tool_edge);
 
-        let tool_edge = tooling.clone();
+        let tool_edge = module.clone();
         let next = next.edge_link(tool_edge, self.clone().into());
 
-        self.update(next)
+        self.set_store(next)
+    }
+    
+    /// `on_update` is called after an update has occured
+    fn on_update(&self) {}
+
+    /// `update` passes in a fn that returns the next Self and Store
+    fn update(&mut self, update: fn(&Self, Store<Self::Node>) -> (Self, Store<Self::Node>)) -> Self {
+        let store = self.get_store();
+
+        let (mut next, next_store) = update(&self, store);
+
+        let set = move || next.set_store(next_store);
+
+        let next = set();
+
+        next.on_update();
+
+        next
     }
 }
 
