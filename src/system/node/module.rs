@@ -31,7 +31,7 @@ impl<'a> System<'a> for Module {
 impl<'a> NodeVisitor<'a> for Module {
     type Parameters = EditorResource;
 
-    fn call(&self, resource: Self::Parameters) -> Self {
+    fn dispatch(&self, resource: Self::Parameters) -> Self {
         let Module { mut resources } = self.clone(); 
 
         resources.push(resource); 

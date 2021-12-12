@@ -531,8 +531,6 @@ impl<'a> App<'a> for NodeEditor {
     fn show(&mut self, ui: &imgui::Ui) {
         let window = self.get_window();
 
-        ui.show_demo_window(&mut true);
-
         window.build(&ui, || {
             imgui::ChildWindow::new("editor")
                 .size([-1.0, 0.00])
@@ -567,4 +565,6 @@ impl<'a> App<'a> for NodeEditor {
                 });
         });
     }
+
+    
 }

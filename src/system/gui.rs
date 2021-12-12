@@ -4,6 +4,7 @@ use specs::prelude::*;
 use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
+
 pub struct GUI<A> {
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,

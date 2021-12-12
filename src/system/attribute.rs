@@ -4,16 +4,27 @@ use specs::{Entities, System};
 
 use crate::store::Store;
 
-use super::{EditorResource, NodeExterior, NodeInterior, NodeResource, NodeVisitor, Reducer, Routines, State, Value};
+use super::{EditorResource, NodeExterior, NodeInterior, NodeResource, NodeVisitor, Reducer, State};
+
+mod value;
+pub use value::Value;
+
+mod routine;
+pub use routine::Routine;
 
 #[derive(Debug, Clone, Hash)]
 pub enum Attribute {
     Literal(Value),
-    Functions(Routines),
+    Functions(Routine),
     OrderedMap(BTreeMap<String, Attribute>),
-    Graph(Store<Attribute>),
     Empty,
     Error(String),
+}
+
+impl Default for Attribute {
+    fn default() -> Self {
+        Attribute::Empty
+    }
 }
 
 impl Into<EditorResource> for Attribute {
@@ -75,7 +86,7 @@ impl<'a> NodeVisitor<'a> for Attribute {
         Some(state.into())
     }
 
-    fn call(&self, name: Self::Parameters) -> Self {
+    fn dispatch(&self, name: Self::Parameters) -> Self {
         todo!()
     }
 }
@@ -108,18 +119,17 @@ impl Into<State> for Attribute {
         },
             Attribute::Functions(routines) => {
                 match routines {
-                Routines::Name(_) => state.insert("name", self),
-                Routines::Select(_) => state.insert("select", self),
-                Routines::Reduce(_) => state.insert("reduce", self),
-                Routines::Transform(_) => state.insert("transform", self),
-                Routines::Next(_) => state.insert("next", self),
+                Routine::Name(_) => state.insert("name", self),
+                Routine::Select(_) => state.insert("select", self),
+                Routine::Reduce(_) => state.insert("reduce", self),
+                Routine::Transform(_) => state.insert("transform", self),
+                Routine::Next(_) => state.insert("next", self),
             }},
             Attribute::OrderedMap(_) => { 
-                state.insert("map", self) },
+                state.insert("ordered-map", self) },
             Attribute::Error(_) => {
                 state.insert("error", self)},
             Attribute::Empty => state,
-            Attribute::Graph(_) => todo!(),
         };
 
         state
@@ -130,10 +140,10 @@ impl Into<f32> for Attribute {
     fn into(self) -> f32 {
         match self {
             crate::system::Attribute::Literal(l) => match l {
-                crate::system::Value::Float(f) => f,
-                crate::system::Value::Int(i) => (i as f32),
-                crate::system::Value::FloatRange(f, _, _) => f,
-                crate::system::Value::IntRange(i, _, _) => (i as f32),
+                Value::Float(f) => f,
+                Value::Int(i) => (i as f32),
+                Value::FloatRange(f, _, _) => f,
+                Value::IntRange(i, _, _) => (i as f32),
                 _ => 0.00
             },
             _ => 0.00
@@ -208,12 +218,6 @@ impl From<State> for Attribute {
     }
 }
 
-impl From<Routines> for Attribute {
-    fn from(r: Routines) -> Self {
-        Attribute::Functions(r)
-    }
-}
-
 impl Attribute {
     // Get a blank copy
     pub fn copy_blank(&self) -> Self {
@@ -232,7 +236,6 @@ impl Attribute {
             Attribute::Error(msg) => Attribute::Error(msg.clone()),
             Attribute::Empty => Attribute::Empty,
             Attribute::Functions(_) => todo!(),
-            Attribute::Graph(_) => todo!(),
         }
     }
 }

@@ -1,23 +1,22 @@
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher}
 };
 
-/// Store is a graph of nodes that store a value of T and the links to T
+/// `Store` is a graph of nodes that store a value of `T` and the links to `T`
 #[derive(Clone, Debug)]
 pub struct Store<T>
 where
-    T: Hash + Clone,
+    T: Hash + Clone + Into<T>,
 {
     nodes: HashMap<u64, (T, HashSet<u64>)>,
 }
 
 impl<T> Hash for Store<T> 
 where
-    T: Hash + Clone,
+T: Hash + Clone + PartialOrd,
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
-
         self.nodes.iter().for_each(|e| {
             let (key, (value, ..)) = e; 
             {
@@ -30,7 +29,7 @@ where
 
 impl<T> Default for Store<T>
 where
-    T: Hash + Clone + Default,
+T: Hash + Clone,
 {
     fn default() -> Self {
         Self {
@@ -51,7 +50,7 @@ where
 /// then the destination node can be retrieved via the destination_key
 impl<T> Store<T>
 where
-    T: Hash + Clone,
+T: Hash + Clone,
 {
     /// `node` adds a node to the underlying graph for `val`
     /// If val is already a node, then no changes are made
@@ -180,6 +179,90 @@ where
         }
     }
 
+    /// `references` returns all nodes whose references contain `val`. 
+    ///  If no nodes reference `val` returns `None`.
+    pub fn references(&self, val: T) -> Option<Vec<T>> {
+        let code = Self::get_hash_code(val);
+
+        let references: Vec<T> = self.nodes.iter().filter_map(|f|{
+            let (id, (val, references)) = f;
+
+            let is_ref = references.iter().any(|f| {
+                f ^ code == *id
+            });
+
+            if is_ref {
+                Some(val.to_owned())
+            } else {
+                None
+            }
+        }).collect();
+
+        if references.len() > 0 {
+            Some(references)
+        } else {
+            None
+        }
+    }
+
+    /// `edge_edge` creates a link between two edge nodes
+    pub fn edge_edge<E>(&self, from: E, to: E) -> Self 
+    where
+        E: Into<T> + Clone
+    {
+        let f: T = from.clone().into();
+        let t: T = to.clone().into();
+        self
+            .node(f.clone())
+            .node(t.clone())
+            .link(f.clone(), t.clone())
+    }
+
+    /// `edge_node` adds a node that rests at the edge of the graph data
+    /// might be useful as an entrypoint from external data into graph data
+    pub fn edge_node<E>(&self, val: E) -> Self 
+    where
+        E: Into<T>
+    {
+        self.node(val.into())
+    }
+
+    /// `edge_link` creates a link from an edge node to a store node
+    pub fn edge_link<E>(&self, from: E, to: T) -> Self 
+    where
+        E: Into<T>
+    {
+        self.link(from.into(), to)
+    }
+
+    /// `edge_walk_ordered` walks the graph starting from an edge node in order
+    pub fn edge_walk_ordered<E>(&self, from: E) ->  (BTreeSet<T>, BTreeSet<(Option<T>, Option<T>)>) 
+    where
+        E: Into<T>,
+        T: Ord
+    {
+        let mut seen: BTreeSet<T> = BTreeSet::new();
+        let mut visited: BTreeSet<(Option<T>, Option<T>)> = BTreeSet::new();
+
+        self.walk_ordered(from.into(),&mut seen, &mut visited);
+
+        (seen, visited)
+    }
+
+    /// `edge_walk` walks the graph starting from an edge node 
+    pub fn edge_walk<E>(&self, from: E) ->  (HashSet<T>, HashSet<(Option<T>, Option<T>)>) 
+    where
+        E: Into<T>,
+        T: Eq
+    {
+        let mut seen: HashSet<T> = HashSet::new();
+        let mut visited: HashSet<(Option<T>, Option<T>)> = HashSet::new();
+
+        self.walk(from.into(),&mut seen, &mut visited);
+
+        (seen, visited)
+    }
+
     fn get_hash_code(val: T) -> u64 {
         let mut hash_code = std::collections::hash_map::DefaultHasher::default();
 
@@ -228,7 +311,15 @@ fn test_store() {
     visited_ordered.iter().for_each(|v| println!("{:?}", v));
 }
 
-#[derive(Default, Clone, Hash)]
+struct IndirectIndexer();
+
+impl Into<Indexer> for IndirectIndexer {
+    fn into(self) -> Indexer {
+        Indexer("test".to_string(), 0)
+    }
+}
+
+#[derive(Default, Clone, Hash, PartialEq, PartialOrd, Eq, Ord)]
 struct Indexer(String, u64);
 
 /// You can declare the links even if they don't exist yet..
@@ -260,10 +351,22 @@ struct Indexer(String, u64);
 fn test_indexer() {
     let indexer = Store::<Indexer>::default();
 
-    indexer.node(Indexer("test".to_string(), 5));
+    let indexer = indexer
+        .node(Indexer("test".to_string(), 5))
+        .edge_node(IndirectIndexer());
 
-    indexer.link(
+    let indexer = indexer
+    .link(
         Indexer("test".to_string(), 5),
         Indexer("test".to_string(), 5),
+    )
+    .edge_link(
+        IndirectIndexer(),
+        Indexer("test".to_string(), 5), 
     );
+
+    let (seen_ordered, visited_ordered) = indexer.edge_walk_ordered(IndirectIndexer());
+
+    assert!(seen_ordered.contains(&IndirectIndexer().into()));
+    assert!(visited_ordered.contains(&(Some(IndirectIndexer().into()), Some(Indexer("test".to_string(), 5)))));
 }

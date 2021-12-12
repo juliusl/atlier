@@ -9,3 +9,5 @@ mod graphics;
 pub use graphics::ColorEditor;
 
 mod editor;
+pub use editor::EditorNode;
+pub use editor::NodeComponent;

@@ -42,7 +42,7 @@ impl<'a> NodeVisitor<'a> for ColorEditor {
         todo!()
     }
 
-    fn call(&self, name: Self::Parameters) -> Self
+    fn dispatch(&self, name: Self::Parameters) -> Self
     where
             Self: Sized + Clone 
     {

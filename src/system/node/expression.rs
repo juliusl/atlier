@@ -113,7 +113,7 @@ where
         Some(Attribute::Literal(Value::Float(V::func()(self.lhs, self.rhs))).into())
     }
 
-    fn call(&self, _: Self::Parameters) -> Self {
+    fn dispatch(&self, _: Self::Parameters) -> Self {
         self.clone()
     }
 }

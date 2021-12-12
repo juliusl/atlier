@@ -1,5 +1,5 @@
 use super::{NodeComponent, EditorComponent};
-use crate::system::{Attribute, Routines, State};
+use crate::system::{Attribute, Routine, State};
 use imnodes::{InputPinId, OutputPinId};
 use std::{collections::{BTreeMap, HashMap}, hash::{Hash, Hasher}};
 
@@ -53,7 +53,7 @@ pub enum NodeResource {
 impl From<State> for NodeResource {
     fn from(state: State) -> Self {
         if let Some(Attribute::OrderedMap(map)) = state.get("Title") {
-            let resource = if let Some(Attribute::Functions(Routines::Name(name))) = map.get("Name") {
+            let resource = if let Some(Attribute::Functions(Routine::Name(name))) = map.get("Name") {
                 NodeResource::Title(name())
             } else {
                 NodeResource::Empty

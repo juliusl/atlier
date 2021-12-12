@@ -1,9 +1,7 @@
 use imgui::TableColumnSetup;
 use imnodes::CoordinateSystem;
 use specs::System;
-
-use crate::system::{Routines, State, Value};
-
+use crate::system::{Routine, State, Value};
 use super::{Attribute, EditorResource, NodeResource};
 
 pub trait NodeInterior<'a> {
@@ -17,15 +15,15 @@ pub trait NodeInterior<'a> {
 
 pub trait NodeVisitor<'a>
 where
-    Self: Sized + 'a + Clone,
+    Self: Sized + Clone + 'a,
 {
     /// `Parameters` is the type passed into the `.call` `fn`
     type Parameters;
 
-    /// `call` a function by parameters
-    fn call(&self, params: Self::Parameters) -> Self;
+    /// `dispatch` a state change with params
+    fn dispatch(&self, params: Self::Parameters) -> Self;
 
-    /// `evaluate` all calls and if a new state exists returns Some state
+    /// `evaluate` dispatched messages
     fn evaluate(&self) -> Option<State>;
 
     /// `returns` evaluates the visitor and returns a hash code and attribute
@@ -294,7 +292,7 @@ pub trait Display {
     }
 
     fn from_state(state: State) -> NodeResource {
-        if let Some(Attribute::Functions(Routines::Name(name))) = state.get("display_name") {
+        if let Some(Attribute::Functions(Routine::Name(name))) = state.get("display_name") {
             NodeResource::Display(name, Self::display, None)
         } else {
             NodeResource::Empty
@@ -335,7 +333,7 @@ pub trait Reducer {
     }
 
     fn from_state(state: State) -> NodeResource {
-        if let Some(Attribute::Functions(Routines::Name(result_name))) = state.get("result_name") {
+        if let Some(Attribute::Functions(Routine::Name(result_name))) = state.get("result_name") {
             NodeResource::Reducer(
                 result_name,
                 Self::display,
