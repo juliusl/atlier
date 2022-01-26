@@ -5,23 +5,9 @@ use winit::event_loop::ControlFlow;
 
 fn main() {
     let attr = NodeResource::Attribute(
-        || "test",
+        || "float-constant",
         AttributeValue::input,
         Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
-        None,
-    );
-
-    let attrstr = NodeResource::Attribute(
-        || "test-str",
-        AttributeValue::input,
-        Some(Value::TextBuffer(String::new()).into()),
-        None,
-    );
-
-    let attrfloat = NodeResource::Attribute(
-        || "test-float",
-        AttributeValue::input,
-        Some(Value::Float(0.0).into()),
         None,
     );
 
@@ -34,31 +20,29 @@ fn main() {
             FloatExpression::<Subtract>::resource(None),
             FloatExpression::<Divide>::resource(None),
             FloatExpression::<Multiply>::resource(None),
-            ListDirectory::resource(None),
-            EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
+            // ListDirectory::resource(None),
+            // EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
             EditorResource::Node {
                 resources: vec![
                     NodeResource::Title("hello"),
                     attr,
-                    attrstr,
-                    attrfloat,
                     NodeResource::Output(
                         || "output",
-                        |_| Some(Value::Float(5.0).into()),
+                        |state| Some(state["float-constant"].clone()),
                         None,
                         None,
                     ),
                 ],
                 id: None,
             },
-            EditorResource::Node {
-                resources: Test {
-                    lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-                    rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-                }
-                .node(),
-                id: None,
-             },
+            // EditorResource::Node {
+            //     resources: Test {
+            //         lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
+            //         rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
+            //     }
+            //     .node(),
+            //     id: None,
+            //  },
         ],
         true,
     );

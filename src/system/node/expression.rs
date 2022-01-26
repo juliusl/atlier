@@ -136,6 +136,7 @@ where
            (Some(AttributeValue::Literal(Value::Float(lhs))), Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
            (Some(AttributeValue::Literal(Value::Float(lhs))), None) => FloatExpression { lhs: *lhs, rhs: 0.0, _p: PhantomData::default() },
            (None, Some(AttributeValue::Literal(Value::Float(rhs)))) => FloatExpression { lhs: 0.0, rhs: *rhs, _p: PhantomData::default() },
+           (Some(AttributeValue::Literal(Value::FloatRange(lhs, _, _))), Some(AttributeValue::Literal(Value::FloatRange(rhs, _, _)))) => FloatExpression { lhs: *lhs, rhs: *rhs, _p: PhantomData::default() },
            _ => FloatExpression { lhs: 0.00, rhs: 0.00, _p: PhantomData::default() }
        }
     }
