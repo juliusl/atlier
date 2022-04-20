@@ -1,99 +1,14 @@
 use atlier::prelude::*;
-use specs::prelude::*;
-use std::{collections::BTreeMap};
-use winit::event_loop::ControlFlow;
+use std::collections::BTreeMap;
 
 fn main() {
-    let attr = NodeResource::Attribute(
-        || "float-constant",
-        AttributeValue::input,
-        Some(Value::FloatRange(10.0, 0.0, 100.0).into()),
-        None,
-    );
+    let runtime = Runtime::new(
+        "example-imnodes-rs", 
+        1920.0, 
+        1080.0, 
+        &UserApp{});
 
-    let mut w = World::new();
-    w.insert(ControlState { control_flow: None });
-
-    let app = NodeEditor::new("node-editor".to_string()).module(
-        vec![
-            FloatExpression::<Add>::resource(None),
-            FloatExpression::<Subtract>::resource(None),
-            FloatExpression::<Divide>::resource(None),
-            FloatExpression::<Multiply>::resource(None),
-            // ListDirectory::resource(None),
-            // EditorResource::merge(&FloatExpression::<Multiply>::resource(None), ListDirectory::resource(None)),
-            EditorResource::Node {
-                resources: vec![
-                    NodeResource::Title("hello"),
-                    attr,
-                    NodeResource::Output(
-                        || "output",
-                        |state| Some(state["float-constant"].clone()),
-                        None,
-                        None,
-                    ),
-                ],
-                id: None,
-            },
-            // EditorResource::Node {
-            //     resources: Test {
-            //         lhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-            //         rhs: Value::FloatRange(10.0, 0.0, 100.0).into(),
-            //     }
-            //     .node(),
-            //     id: None,
-            //  },
-        ],
-        true,
-    );
-
-    // Create the new gui_system,
-    // after this point no changes can be made to gui or event_loop
-    // This application either starts up, or panics here
-    let (event_loop, gui) =
-        new_gui_system::<NodeEditor>("example-imnodes-specs", 1920.0, 1080.0, vec![app]);
-
-    // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
-    dispatcher.setup(&mut w);
-
-    // Create a gui entity that we can use to communicate with the window
-    let gui_entity = w
-        .create_entity()
-        .maybe_with(Some(GUIUpdate {
-            event: winit::event::Event::Suspended,
-        }))
-        .build();
-
-    // Starts the event loop
-    event_loop.run(move |event, _, control_flow| {
-        // LOGIC
-
-        dispatcher.dispatch_seq(&w);
-        w.maintain();
-
-        // THREAD LOCAL
-        // Dispatch the next event to the gui_entity that is rendering windows
-        if let Some(event) = event.to_static() {
-            if let Err(err) = w
-                .write_component()
-                .insert(gui_entity, GUIUpdate { event: event })
-            {
-                println!("Error: {}", err)
-            }
-            dispatcher.dispatch_thread_local(&w);
-        }
-
-        w.maintain();
-
-        // The gui_system can dispatch back some control state, which we can read here
-        let control_state = w.read_resource::<ControlState>();
-        if let Some(c) = control_state.control_flow {
-            *control_flow = c;
-        } else {
-            *control_flow = ControlFlow::Poll;
-        }
-    });
+    runtime.start()
 }
 
 struct Test {
@@ -205,7 +120,7 @@ impl Test {
             //     display_internals,
             //     None,
             //     None,
-            // ), 
+            // ),
         ]
     }
 }

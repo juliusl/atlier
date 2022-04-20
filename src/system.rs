@@ -2,6 +2,8 @@ mod window;
 mod gui;
 mod node;
 mod font;
+mod user_app;
+mod runtime;
 
 use window::WindowContext;
 use window::Hardware;
@@ -13,6 +15,11 @@ use std::hash::Hash;
 pub use gui::GUI;
 pub use gui::GUIUpdate;
 pub use gui::ControlState;
+
+pub use user_app::UserApp;
+pub use user_app::Plugin;
+
+pub use runtime::Runtime;
 
 pub use node::NodeModule;
 pub use node::NodeEditor;
@@ -72,7 +79,7 @@ impl Into<AttributeValue> for Value {
     }
 }
 
-pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>) ->  (winit::event_loop::EventLoop<()>, GUI<A>) {
+pub fn new_gui_system(title: &str, width: f64, height: f64) ->  (winit::event_loop::EventLoop<()>, GUI) {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
         if let Hardware {
@@ -185,7 +192,6 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
                 platform: platform,
                 last_frame: None,
                 last_cursor: None,
-                app: apps,
             };
 
             return (event_loop, gui);

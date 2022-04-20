@@ -5,7 +5,9 @@ use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
-pub struct GUI<A> {
+use super::UserApp;
+
+pub struct GUI {
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
@@ -21,13 +23,16 @@ pub struct GUI<A> {
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: Vec<A>,
 }
 
-pub struct GUIUpdate {
+pub struct GUIUpdate
+{
     pub event: Event<'static, ()>,
+    pub user_app: UserApp
 }
-impl<'a> Component for GUIUpdate {
+
+impl<'a> Component for GUIUpdate
+{
     type Storage = HashMapStorage<Self>;
 }
 
@@ -49,16 +54,14 @@ pub struct GUISystemData<'a>
     update: ReadStorage<'a, GUIUpdate>,
 }
 
-impl<'a, A> System<'a> for GUI<A>
-where 
-    A: crate::App<'a>
+impl<'a> System<'a> for GUI
 {
     type SystemData = GUISystemData<'a>;
 
     fn run(&mut self, data: Self::SystemData) {
         let mut control_state = data.control_state;
 
-        for GUIUpdate { event } in data.update.join() {
+        for GUIUpdate { event, user_app } in data.update.join() {
             control_state.control_flow = Some(ControlFlow::Poll);
 
             match event {
@@ -103,10 +106,7 @@ where
 
                     let ui = self.imgui.frame();
 
-                    // App entry point
-                    for window in self.app.iter_mut() {
-                        window.show(&ui);
-                    }
+                    user_app.show(&ui);
 
                     let mut encoder: wgpu::CommandEncoder = self
                         .device
