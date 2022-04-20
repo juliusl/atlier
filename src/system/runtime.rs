@@ -59,7 +59,6 @@ impl Runtime<'static> {
         let mut w = self.world;
         // Starts the event loop
         self.event_loop.run(move |event, _, control_flow| {
-            // LOGIC
             for plugin in &self.plugins {
                 plugin.update(&mut w, PluginState{});
             }

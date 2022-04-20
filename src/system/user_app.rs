@@ -1,4 +1,4 @@
-use specs::{World, Component, Entity, HashMapStorage};
+use specs::{World, Component, Entity, HashMapStorage, WorldExt};
 
 
 pub struct PluginState {}
@@ -12,13 +12,13 @@ pub struct Plugin {
 }
 
 impl Plugin {
-    // TODO: 
-    // design a standard set of components that can be operated on
-    pub fn update<T>(&self, world: &mut World, component: T) -> Self
+    pub fn update<T>(&self, world: &mut World, component: T)
     where
         T: Component
     {
-        todo!();
+        if let Err(err) = world.write_component().insert(self.entity, component) {
+            eprintln!("err: Could not update entity, {}", err)
+        }
     }
 }
 
