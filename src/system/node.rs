@@ -243,11 +243,11 @@ impl<'a> EditorComponent for NodeModule {
                                         reduce,
                                         (hash_code, reduced_state),
                                         output_id,
-                                        attr_id
+                                        attr_id,
                                     ) => {
-                                        let (next_hash_code, next_param) = map(state); 
+                                        let (next_hash_code, next_param) = map(state);
 
-                                        let next =  if next_hash_code != *hash_code {
+                                        let next = if next_hash_code != *hash_code {
                                             let next_state = reduce(next_param);
                                             NodeResource::Reducer(
                                                 name.to_owned(),
@@ -541,50 +541,37 @@ impl NodeEditor {
     }
 }
 
-impl<'a> App<'a> for NodeEditor {
-    fn get_window(&self) -> imgui::Window<'static, String> {
-        imgui::Window::new(self.name.clone())
-            .resizable(true)
-            .movable(true)
-            .position([0.0, 0.0], imgui::Condition::Once)
-            .size([800.0, 600.0], imgui::Condition::Once)
-    }
-
+impl App for NodeEditor {
     fn show(&mut self, ui: &imgui::Ui) {
-        let window = self.get_window();
-
         ui.show_demo_window(&mut true);
 
-        window.build(&ui, || {
-            imgui::ChildWindow::new("editor")
-                .size([-1.0, 0.00])
-                .build(ui, || {
-                    self.modules.iter_mut().for_each(|(e, m)| {
-                        let node_padding =
-                            imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
-                        let resources = <NodeModule as EditorComponent>::setup(
-                            &mut m.id_gen,
-                            &e,
-                            m.resources.to_vec(),
-                        );
-                        m.resources = resources;
+        imgui::ChildWindow::new("editor")
+            .size([-1.0, 0.00])
+            .build(ui, || {
+                self.modules.iter_mut().for_each(|(e, m)| {
+                    let node_padding = imnodes::StyleVar::NodePaddingHorizontal.push_val(16.0, e);
+                    let resources = <NodeModule as EditorComponent>::setup(
+                        &mut m.id_gen,
+                        &e,
+                        m.resources.to_vec(),
+                    );
+                    m.resources = resources;
 
-                        let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
+                    let detatch = e.push(imnodes::AttributeFlag::EnableLinkDetachWithDragClick);
 
-                        let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
+                    let outer_scope = editor(e, |mut editor| m.show(&mut editor, ui));
 
-                        for i in outer_scope.links_created() {
-                            m.on_node_link_created(i);
-                        }
+                    for i in outer_scope.links_created() {
+                        m.on_node_link_created(i);
+                    }
 
-                        for i in outer_scope.get_dropped_link() {
-                            m.on_node_link_destroyed(i);
-                        }
+                    for i in outer_scope.get_dropped_link() {
+                        m.on_node_link_destroyed(i);
+                    }
 
-                        detatch.pop();
-                        node_padding.pop();
-                    });
+                    detatch.pop();
+                    node_padding.pop();
                 });
-        });
+            });
     }
 }

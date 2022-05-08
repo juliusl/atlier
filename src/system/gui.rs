@@ -5,7 +5,12 @@ use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
-pub struct GUI<A> {
+use super::Test;
+
+pub struct GUI<A> 
+where
+    A: Sized + Clone
+{
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
@@ -21,7 +26,7 @@ pub struct GUI<A> {
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: Vec<A>,
+    pub app: A,
 }
 
 pub struct GUIUpdate {
@@ -51,7 +56,7 @@ pub struct GUISystemData<'a>
 
 impl<'a, A> System<'a> for GUI<A>
 where 
-    A: crate::App<'a>
+    A: crate::App + Sized + Clone
 {
     type SystemData = GUISystemData<'a>;
 
@@ -103,9 +108,15 @@ where
 
                     let ui = self.imgui.frame();
 
-                    // App entry point
-                    for window in self.app.iter_mut() {
-                        window.show(&ui);
+                    //ui.show_demo_window(&mut true);
+
+                    let window = imgui::Window::new("window_title".to_string())
+                        .size([800.0, 600.0], imgui::Condition::FirstUseEver);
+
+                    if let Some(window) = window.begin(&ui) {
+                        self.app.show(&ui);
+
+                        window.end();
                     }
 
                     let mut encoder: wgpu::CommandEncoder = self

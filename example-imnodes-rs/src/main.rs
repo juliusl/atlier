@@ -47,11 +47,13 @@ fn main() {
         true,
     );
 
+    let app = atlier::system::Test::default();
+
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     let (event_loop, gui) =
-        new_gui_system::<NodeEditor>("example-imnodes-specs", 1920.0, 1080.0, vec![app]);
+        new_gui_system("example-imnodes-specs", 1920.0, 1080.0, app);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();

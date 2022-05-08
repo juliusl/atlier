@@ -1,5 +1,8 @@
 {
     "cmake.sourceDirectory": "${workspaceFolder}/src",
     "C_Cpp.default.includePath": ["include"],
-    "cmake.configureOnOpen": true
+    "cmake.configureOnOpen": true,
+    "cSpell.enableFiletypes": [
+        "!rust"
+    ]
 }

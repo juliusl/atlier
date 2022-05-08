@@ -2,6 +2,7 @@ mod window;
 mod gui;
 mod node;
 mod font;
+mod test;
 
 use window::WindowContext;
 use window::Hardware;
@@ -9,6 +10,8 @@ use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use imgui::FontSource;
 use std::hash::Hash;
+
+pub use test::Test;
 
 pub use gui::GUI;
 pub use gui::GUIUpdate;
@@ -30,8 +33,7 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-pub trait App<'a> {
-    fn get_window(&self) -> imgui::Window<'static, String>;
+pub trait App {
     fn show(&mut self, ui: &imgui::Ui);
 }
 
@@ -72,7 +74,10 @@ impl Into<AttributeValue> for Value {
     }
 }
 
-pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>) ->  (winit::event_loop::EventLoop<()>, GUI<A>) {
+pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, app: A) ->  (winit::event_loop::EventLoop<()>, GUI<A>) 
+    where
+        A: Clone
+{
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
         if let Hardware {
@@ -185,7 +190,7 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, apps: Vec<A>)
                 platform: platform,
                 last_frame: None,
                 last_cursor: None,
-                app: apps,
+                app: app,
             };
 
             return (event_loop, gui);
