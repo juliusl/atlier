@@ -10,6 +10,7 @@ pub struct GUI<S>
     where
         S: Clone + Default
 {
+    pub window_title: String,
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
     pub device: wgpu::Device,
@@ -25,7 +26,7 @@ pub struct GUI<S>
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: fn(&imgui::Ui, &S) -> S,
+    pub app: fn(&imgui::Ui, &S) -> Option<S>,
     pub state: S,
 }
 
@@ -110,15 +111,16 @@ where
 
                     //ui.show_demo_window(&mut true);
 
-                    let window = imgui::Window::new("window_title".to_string())
+                    let window = imgui::Window::new(&self.window_title)
                         .size([800.0, 600.0], imgui::Condition::FirstUseEver);
 
                     if let Some(window) = window.begin(&ui) {
                         let func = self.app;
                         let state = self.state.clone();
-                        let state = func(&ui, &state);
-                        self.state = state;
-
+                        if let Some(state) = func(&ui, &state) {
+                            self.state = state;
+                        }
+                        
                         window.end();
                     }
 

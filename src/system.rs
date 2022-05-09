@@ -57,7 +57,14 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor<S>(show: fn(&imgui::Ui, &S) -> S) 
+pub fn default_start_editor_1080p<S>(title: &str, show: fn(&imgui::Ui, &S) -> Option<S>) 
+where
+    S: Clone + Default + 'static
+{
+    start_editor(title, 1920.0, 1080.0, S::default(), show)
+}
+
+pub fn start_editor<S>(title: &str, width: f64, height: f64, initial_state: S, show: fn(&imgui::Ui, &S) -> Option<S>) 
 where
     S: Clone + Default + 'static
 {
@@ -68,7 +75,7 @@ where
     // This application either starts up, or panics here
 
     let (event_loop, gui) =
-        new_gui_system::<S>("example-imnodes-specs", 1920.0, 1080.0, show);
+        new_gui_system::<S>(title, width, height, initial_state, show);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
@@ -108,7 +115,7 @@ where
     });
 }
 
-pub fn new_gui_system<S>(title: &str, width: f64, height: f64, app: fn(&imgui::Ui, &S) -> S) ->  (winit::event_loop::EventLoop<()>, GUI<S>) 
+pub fn new_gui_system<S>(title: &str, width: f64, height: f64, initial_state: S, app: fn(&imgui::Ui, &S) -> Option<S>) ->  (winit::event_loop::EventLoop<()>, GUI<S>) 
 where
     S: Clone + Default
 {
@@ -209,6 +216,7 @@ where
             
 
             let gui = GUI {
+                window_title: title.to_string(),
                 imgui: imgui,
                 renderer: renderer,
                 instance: instance,
@@ -225,7 +233,7 @@ where
                 last_frame: None,
                 last_cursor: None,
                 app: app,
-                state: S::default(),
+                state: initial_state,
             };
 
             return (event_loop, gui);
