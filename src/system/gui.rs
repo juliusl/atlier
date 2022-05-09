@@ -6,8 +6,6 @@ use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
-use super::Test;
-
 pub struct GUI<S>
     where
         S: Clone + Default

@@ -1,8 +1,6 @@
 mod window;
 mod gui;
-mod node;
 mod font;
-mod test;
 
 use specs::Builder;
 use specs::DispatcherBuilder;
@@ -16,23 +14,9 @@ use imgui::FontSource;
 use winit::event_loop::ControlFlow;
 use std::hash::Hash;
 
-pub use test::Test;
-
 pub use gui::GUI;
 pub use gui::GUIUpdate;
 pub use gui::ControlState;
-
-pub use node::NodeModule;
-pub use node::NodeEditor;
-pub use node::NodeResource;
-pub use node::EditorResource;
-pub use node::AttributeValue;
-pub use node::expression;
-pub use node::NodeVisitor;
-pub use node::NodeInterior;
-pub use node::NodeExterior;
-pub use node::Reducer;
-pub use node::expression::*;
 
 pub use font::cascadia_code;
 pub use font::monaco;
@@ -70,20 +54,6 @@ impl Hash for Value {
             },
             Value::TextBuffer(txt) => txt.hash(state),
         };
-    }
-}
-
-impl Into<AttributeValue> for Value {
-    fn into(self) -> AttributeValue {
-        AttributeValue::Literal(self)
-    }
-}
-
-pub struct Handler<'a>(imgui::Ui<'a>);
-
-impl<'a> AsRef<imgui::Ui<'a>> for Handler<'a> {
-    fn as_ref(&self) -> &imgui::Ui<'a> {
-        &self.0
     }
 }
 
