@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+use imgui::Ui;
 use specs::prelude::*;
 use winit::event::Event;
 use winit::event::WindowEvent;
@@ -7,9 +8,9 @@ use winit::event_loop::ControlFlow;
 
 use super::Test;
 
-pub struct GUI<A> 
-where
-    A: Sized + Clone
+pub struct GUI<S>
+    where
+        S: Clone + Default
 {
     pub instance: wgpu::Instance,
     pub adapter: wgpu::Adapter,
@@ -26,7 +27,8 @@ where
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: A,
+    pub app: fn(&imgui::Ui, &S) -> S,
+    pub state: S,
 }
 
 pub struct GUIUpdate {
@@ -54,9 +56,9 @@ pub struct GUISystemData<'a>
     update: ReadStorage<'a, GUIUpdate>,
 }
 
-impl<'a, A> System<'a> for GUI<A>
-where 
-    A: crate::App + Sized + Clone
+impl<'a, S> System<'a> for GUI<S>
+where
+    S: Clone + Default
 {
     type SystemData = GUISystemData<'a>;
 
@@ -106,7 +108,7 @@ where
                         .prepare_frame(self.imgui.io_mut(), &self.window)
                         .expect("Failed to prepare frame");
 
-                    let ui = self.imgui.frame();
+                    let ui: Ui = self.imgui.frame();
 
                     //ui.show_demo_window(&mut true);
 
@@ -114,7 +116,10 @@ where
                         .size([800.0, 600.0], imgui::Condition::FirstUseEver);
 
                     if let Some(window) = window.begin(&ui) {
-                        self.app.show(&ui);
+                        let func = self.app;
+                        let state = self.state.clone();
+                        let state = func(&ui, &state);
+                        self.state = state;
 
                         window.end();
                     }

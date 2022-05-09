@@ -4,11 +4,16 @@ mod node;
 mod font;
 mod test;
 
+use specs::Builder;
+use specs::DispatcherBuilder;
+use specs::World;
+use specs::WorldExt;
 use window::WindowContext;
 use window::Hardware;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use imgui::FontSource;
+use winit::event_loop::ControlFlow;
 use std::hash::Hash;
 
 pub use test::Test;
@@ -74,9 +79,68 @@ impl Into<AttributeValue> for Value {
     }
 }
 
-pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, app: A) ->  (winit::event_loop::EventLoop<()>, GUI<A>) 
-    where
-        A: Clone
+pub struct Handler<'a>(imgui::Ui<'a>);
+
+impl<'a> AsRef<imgui::Ui<'a>> for Handler<'a> {
+    fn as_ref(&self) -> &imgui::Ui<'a> {
+        &self.0
+    }
+}
+
+pub fn start_editor<S>(show: fn(&imgui::Ui, &S) -> S) 
+where
+    S: Clone + Default + 'static
+{
+    let mut w = World::new();
+    w.insert(ControlState { control_flow: None });
+    // Create the new gui_system,
+    // after this point no changes can be made to gui or event_loop
+    // This application either starts up, or panics here
+
+    let (event_loop, gui) =
+        new_gui_system::<S>("example-imnodes-specs", 1920.0, 1080.0, show);
+
+    // Create the specs dispatcher
+    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
+    dispatcher.setup(&mut w);
+
+    // Create a gui entity that we can use to communicate with the window
+    let gui_entity = w
+        .create_entity()
+        .maybe_with(Some(GUIUpdate {
+            event: winit::event::Event::Suspended,
+        }))
+        .build();
+
+    // Starts the event loop
+    event_loop.run(move |event, _, control_flow| {
+        // THREAD LOCAL
+        // Dispatch the next event to the gui_entity that is rendering windows
+        if let Some(event) = event.to_static() {
+            if let Err(err) = w
+                .write_component()
+                .insert(gui_entity, GUIUpdate { event: event })
+            {
+                println!("Error: {}", err)
+            }
+            dispatcher.dispatch_thread_local(&w);
+        }
+
+        w.maintain();
+
+        // The gui_system can dispatch back some control state, which we can read here
+        let control_state = w.read_resource::<ControlState>();
+        if let Some(c) = control_state.control_flow {
+            *control_flow = c;
+        } else {
+            *control_flow = ControlFlow::Poll;
+        }
+    });
+}
+
+pub fn new_gui_system<S>(title: &str, width: f64, height: f64, app: fn(&imgui::Ui, &S) -> S) ->  (winit::event_loop::EventLoop<()>, GUI<S>) 
+where
+    S: Clone + Default
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -191,6 +255,7 @@ pub fn new_gui_system<'a, A>(title: &str, width: f64, height: f64, app: A) ->  (
                 last_frame: None,
                 last_cursor: None,
                 app: app,
+                state: S::default(),
             };
 
             return (event_loop, gui);
