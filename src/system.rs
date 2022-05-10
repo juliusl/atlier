@@ -22,8 +22,13 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-pub trait App {
-    fn show(&mut self, ui: &imgui::Ui);
+pub type ShowFunc<S> = fn(&imgui::Ui, &S, Option<&mut imnodes::EditorContext>) -> Option<S>;
+
+pub trait App 
+where
+    Self: Clone + Default + 'static
+{
+    fn show(ui: &imgui::Ui, state: &Self, imnode_editor: Option<&mut imnodes::EditorContext>) -> Option<Self>;
 }
 
 #[derive(Debug, Clone)]
@@ -57,14 +62,14 @@ impl Hash for Value {
     }
 }
 
-pub fn default_start_editor_1080p<S>(title: &str, show: fn(&imgui::Ui, &S) -> Option<S>) 
+pub fn default_start_editor_1080p<S>(title: &str, show: ShowFunc<S>) 
 where
     S: Clone + Default + 'static
 {
-    start_editor(title, 1920.0, 1080.0, S::default(), show)
+    start_editor(title, 1920.0, 1080.0, S::default(), show, true)
 }
 
-pub fn start_editor<S>(title: &str, width: f64, height: f64, initial_state: S, show: fn(&imgui::Ui, &S) -> Option<S>) 
+pub fn start_editor<S>(title: &str, width: f64, height: f64, initial_state: S, show: ShowFunc<S>, enable_imnodes: bool) 
 where
     S: Clone + Default + 'static
 {
@@ -75,7 +80,7 @@ where
     // This application either starts up, or panics here
 
     let (event_loop, gui) =
-        new_gui_system::<S>(title, width, height, initial_state, show);
+        new_gui_system::<S>(title, width, height, initial_state, show, enable_imnodes);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
@@ -115,7 +120,7 @@ where
     });
 }
 
-pub fn new_gui_system<S>(title: &str, width: f64, height: f64, initial_state: S, app: fn(&imgui::Ui, &S) -> Option<S>) ->  (winit::event_loop::EventLoop<()>, GUI<S>) 
+pub fn new_gui_system<S>(title: &str, width: f64, height: f64, initial_state: S, app: ShowFunc<S>, enable_imnodes: bool) ->  (winit::event_loop::EventLoop<()>, GUI<S>) 
 where
     S: Clone + Default
 {
@@ -214,6 +219,9 @@ where
                 &queue, 
                 renderer_config);
             
+            // ImNodes needs to be passed directly into the show function
+            let imnodes = imnodes::Context::new();
+            let editor = imnodes.create_editor();
 
             let gui = GUI {
                 window_title: title.to_string(),
@@ -234,6 +242,20 @@ where
                 last_cursor: None,
                 app: app,
                 state: initial_state,
+                imnodes: {
+                    if !enable_imnodes {
+                        None
+                    } else {
+                        Some(imnodes)
+                    }
+                },
+                imnodes_editor: {
+                    if !enable_imnodes {
+                        None
+                    } else {
+                        Some(editor)
+                    }
+                }
             };
 
             return (event_loop, gui);

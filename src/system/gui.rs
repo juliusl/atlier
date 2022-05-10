@@ -6,9 +6,11 @@ use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
+use super::ShowFunc;
+
 pub struct GUI<S>
-    where
-        S: Clone + Default
+where
+    S: Clone + Default,
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -26,8 +28,10 @@ pub struct GUI<S>
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: fn(&imgui::Ui, &S) -> Option<S>,
+    pub app: ShowFunc<S>,
     pub state: S,
+    pub imnodes: Option<imnodes::Context>,
+    pub imnodes_editor: Option<imnodes::EditorContext>,
 }
 
 pub struct GUIUpdate {
@@ -42,22 +46,19 @@ pub struct ControlState {
 }
 impl Default for ControlState {
     fn default() -> Self {
-        ControlState {
-            control_flow: None
-        }
+        ControlState { control_flow: None }
     }
 }
 
 #[derive(SystemData)]
-pub struct GUISystemData<'a>
-{
-    control_state: Write<'a, ControlState>, 
+pub struct GUISystemData<'a> {
+    control_state: Write<'a, ControlState>,
     update: ReadStorage<'a, GUIUpdate>,
 }
 
 impl<'a, S> System<'a> for GUI<S>
 where
-    S: Clone + Default
+    S: Clone + Default,
 {
     type SystemData = GUISystemData<'a>;
 
@@ -111,17 +112,17 @@ where
 
                     //ui.show_demo_window(&mut true);
 
-                    let window = imgui::Window::new(&self.window_title)
-                        .size([800.0, 600.0], imgui::Condition::FirstUseEver);
+                    let func = self.app;
+                    let state = self.state.clone();
 
-                    if let Some(window) = window.begin(&ui) {
-                        let func = self.app;
-                        let state = self.state.clone();
-                        if let Some(state) = func(&ui, &state) {
+                    if let Some(_) = &self.imnodes_editor {
+                        if let Some(state) = func(&ui, &state, self.imnodes_editor.as_mut()) {
                             self.state = state;
                         }
-                        
-                        window.end();
+                    } else {
+                        if let Some(state) = func(&ui, &state, None) {
+                            self.state = state;
+                        }
                     }
 
                     let mut encoder: wgpu::CommandEncoder = self
@@ -166,8 +167,9 @@ where
                 }
                 _ => (),
             }
-        
-            self.platform.handle_event(self.imgui.io_mut(), &self.window, &event);
+
+            self.platform
+                .handle_event(self.imgui.io_mut(), &self.window, &event);
         }
     }
 }
