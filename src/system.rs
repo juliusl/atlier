@@ -2,6 +2,8 @@ mod window;
 mod gui;
 mod font;
 
+use imnodes::IdentifierGenerator;
+use imnodes::NodeScope;
 use specs::Builder;
 use specs::DispatcherBuilder;
 use specs::World;
@@ -24,11 +26,15 @@ pub use font::segoe_ui;
 
 pub type ShowFunc<S> = fn(&imgui::Ui, &S, Option<&mut imnodes::EditorContext>) -> Option<S>;
 
-pub trait App 
+pub trait App
 where
-    Self: Clone + Default + 'static
+    Self: Clone + Default
 {
     fn show(ui: &imgui::Ui, state: &Self, imnode_editor: Option<&mut imnodes::EditorContext>) -> Option<Self>;
+
+    fn show_node(_: &imgui::Ui, _: &Self, _: NodeScope, _: &mut IdentifierGenerator) -> Option<Self> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
