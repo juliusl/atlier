@@ -21,13 +21,15 @@ fn main() {
         WorldData {
             str_a: "test".to_string(),
         },
-        |ui, state| {
-            use imgui::ChildWindow;
+        |ui, state, _| {
+            use imgui::Window;
             use imgui::InputText;
+
+            ui.show_demo_window(&mut true);
 
             let mut next_str_a = state.str_a.clone();
             let next_str_a = &mut next_str_a;
-            ChildWindow::new("test").size([-1.0, 0.00]).build(ui, || {
+            Window::new("test").size([1920.0, 1080.0], imgui::Condition::FirstUseEver).build(ui, || {
                 InputText::new(ui, "test", next_str_a).build();
             });
 
@@ -35,5 +37,6 @@ fn main() {
             next.str_a = next_str_a.clone();
             Some(next)
         },
+        false
     );
 }
