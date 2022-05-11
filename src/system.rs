@@ -147,6 +147,7 @@ where
             surface_desc: Some(surface_desc),
             adapter: Some(adapater),
         } = Hardware::from(window_context) {
+            window.set_maximized(true);
             surface.configure(&device, &surface_desc);
             // Set up dear imgui
             let mut imgui = imgui::Context::create();
