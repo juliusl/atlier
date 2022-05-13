@@ -53,6 +53,7 @@ where
             width,
             height,
             initial_state.expect("This should've been the default state"),
+            |_, _|{},
             Self::show,
             true,
         );
@@ -107,18 +108,21 @@ impl Hash for Value {
     }
 }
 
-pub fn default_start_editor_1080p<S>(title: &str, show: ShowFunc<S>)
+pub fn default_start_editor_1080p<S>(title: &str, initialize: InitializeWorldFunc, show: ShowFunc<S>)
 where
     S: Clone + Default + 'static,
 {
-    start_editor(title, 1920.0, 1080.0, S::default(), show, true)
+    start_editor(title, 1920.0, 1080.0, S::default(), initialize, show, true)
 }
+
+type InitializeWorldFunc = fn(&mut World, &mut DispatcherBuilder);
 
 pub fn start_editor<S>(
     title: &str,
     width: f64,
     height: f64,
     initial_state: S,
+    initialize: InitializeWorldFunc,
     show: ShowFunc<S>,
     enable_imnodes: bool,
 ) where
@@ -134,7 +138,11 @@ pub fn start_editor<S>(
         new_gui_system::<S>(title, width, height, initial_state, show, enable_imnodes);
 
     // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
+    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui);
+    
+    initialize(&mut w, &mut dispatcher);
+    
+    let mut dispatcher = dispatcher.build();
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -147,6 +155,8 @@ pub fn start_editor<S>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
+        dispatcher.dispatch_seq(&w);
+
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
         if let Some(event) = event.to_static() {
