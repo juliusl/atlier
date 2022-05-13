@@ -198,10 +198,9 @@ where
             device: Some(device),
             queue: Some(queue),
             surface_desc: Some(surface_desc),
-            adapter: Some(adapater),
+            adapter: Some(adapter),
         } = Hardware::from(window_context)
         {
-            window.set_maximized(true);
             surface.configure(&device, &surface_desc);
             // Set up dear imgui
             let mut imgui = imgui::Context::create();
@@ -282,22 +281,22 @@ where
 
             let gui = GUI {
                 window_title: title.to_string(),
-                imgui: imgui,
-                renderer: renderer,
-                instance: instance,
-                window: window,
-                physical_size: physical_size,
-                surface: surface,
-                hidpi_scale_factor: hidpi_scale_factor,
-                font_size: font_size,
-                adapter: adapater,
-                device: device,
-                queue: queue,
-                surface_desc: surface_desc,
-                platform: platform,
+                imgui,
+                renderer,
+                instance,
+                window,
+                physical_size,
+                surface,
+                hidpi_scale_factor,
+                font_size,
+                adapter,
+                device,
+                queue,
+                surface_desc,
+                platform,
+                app,
                 last_frame: None,
                 last_cursor: None,
-                app: app,
                 state: initial_state,
                 imnodes: {
                     if !enable_imnodes {

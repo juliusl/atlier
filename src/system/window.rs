@@ -41,6 +41,7 @@ impl WindowContext {
             window.set_title(&title);
             let size = window.inner_size();
 
+            window.set_maximized(true);
             window.set_resizable(true);
             let surface = unsafe { instance.create_surface(&window) };
             let hidpi_factor = window.scale_factor();
