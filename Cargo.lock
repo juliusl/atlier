@@ -738,6 +738,7 @@ dependencies = [
 [[package]]
 name = "imnodes"
 version = "0.1.0"
+source = "git+https://github.com/benmkw/imnodes-rs.git#dd3396547360cfc948ca85aa9c9e9115c8b76b34"
 dependencies = [
  "imgui",
  "imnodes-sys",
@@ -746,6 +747,7 @@ dependencies = [
 [[package]]
 name = "imnodes-sys"
 version = "0.1.0"
+source = "git+https://github.com/benmkw/imnodes-rs.git#dd3396547360cfc948ca85aa9c9e9115c8b76b34"
 dependencies = [
  "cc",
  "imgui-sys",

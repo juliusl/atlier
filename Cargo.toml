@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-imnodes = { path = "./imnodes-rs" }
+imnodes = { git = "https://github.com/benmkw/imnodes-rs.git" }
 specs = { version = "0.17.0", features = ["default", "derive"] }
 wgpu = "0.11.0"
 winit = "0.25.0"
