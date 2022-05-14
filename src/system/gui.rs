@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::time::Instant;
 
 use imgui::Ui;
@@ -6,11 +7,12 @@ use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
-use super::ShowFunc;
+use super::App;
 
-pub struct GUI<S>
+pub struct GUI<A, S>
 where
-    S: Clone + Default,
+    A: App,
+    S: Any + Sized + Send + Sync
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -28,10 +30,8 @@ where
     pub font_size: f32,
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
-    pub app: ShowFunc<S>,
+    pub app: A,
     pub state: S,
-    pub imnodes: Option<imnodes::Context>,
-    pub imnodes_editor: Option<imnodes::EditorContext>,
 }
 
 pub struct GUIUpdate {
@@ -51,19 +51,24 @@ impl Default for ControlState {
 }
 
 #[derive(SystemData)]
-pub struct GUISystemData<'a> {
+pub struct GUISystemData<'a, S: Any + Sized + Send + Sync + Component> {
     control_state: Write<'a, ControlState>,
     update: ReadStorage<'a, GUIUpdate>,
+    entities: Entities<'a>,
+    app_state: WriteStorage<'a, S>,
 }
 
-impl<'a, S> System<'a> for GUI<S>
+impl<'a, A, S> System<'a> for GUI<A, S>
 where
-    S: Clone + Default,
+    S: Any + Sized + Send + Sync + Component,
+    A: App<State = S>,
 {
-    type SystemData = GUISystemData<'a>;
+    type SystemData = GUISystemData<'a, S>;
 
     fn run(&mut self, data: Self::SystemData) {
         let mut control_state = data.control_state;
+        let entities = data.entities;
+        let mut app_state = data.app_state;
 
         for GUIUpdate { event } in data.update.join() {
             control_state.control_flow = Some(ControlFlow::Poll);
@@ -110,18 +115,9 @@ where
 
                     let ui: Ui = self.imgui.frame();
 
-                    //ui.show_demo_window(&mut true);
-
-                    let func = self.app;
-                    let state = self.state.clone();
-
-                    if let Some(_) = &self.imnodes_editor {
-                        if let Some(state) = func(&ui, &state, self.imnodes_editor.as_mut()) {
-                            self.state = state;
-                        }
-                    } else {
-                        if let Some(state) = func(&ui, &state, None) {
-                            self.state = state;
+                    for e in entities.join() {
+                        if let Some(state) = app_state.get_mut(e) {
+                            self.app.show_editor(&ui, state);
                         }
                     }
 

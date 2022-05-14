@@ -5,12 +5,12 @@ mod window;
 use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
-use imnodes::IdentifierGenerator;
-use imnodes::NodeScope;
 use specs::Builder;
+use specs::Component;
 use specs::DispatcherBuilder;
 use specs::World;
 use specs::WorldExt;
+use std::any::Any;
 use std::hash::Hash;
 use window::Hardware;
 use window::WindowContext;
@@ -24,12 +24,10 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-pub type ShowFunc<S> = fn(&imgui::Ui, &S, Option<&mut imnodes::EditorContext>) -> Option<S>;
-
-pub trait App
-where
-    Self: Clone + Default,
+pub trait App: Any + Sized 
 {
+    type State: Sync + Send + Any + Sized + Component + Clone;
+
     /// title of this app
     fn title() -> &'static str;
 
@@ -38,52 +36,29 @@ where
         &[1920.0, 1080.0]
     }
 
-    /// start the editor if Self is also the expected State
-    fn start_editor(mut initial_state: Option<Self>)
-    where
-        Self: Clone + Default + 'static,
-    {
-        let &[width, height] = Self::window_size();
-        if let None = initial_state {
-            initial_state = Some(Self::default());
-        }
-
-        start_editor(
-            Self::title(),
-            width,
-            height,
-            initial_state.expect("This should've been the default state"),
-            Self::show,
-            true,
-        );
-    }
-
-    /// show's the UI for this app
-    fn show(
-        ui: &imgui::Ui,
-        state: &Self,
-        imnode_editor: Option<&mut imnodes::EditorContext>,
-    ) -> Option<Self>;
-
-    // show the app's node for this app
-    fn show_node(
+    /// Show's the editor
+    fn show_editor(
+        &mut self,
         _: &imgui::Ui,
-        _: &Self,
-        _: NodeScope,
-        _: &mut IdentifierGenerator,
-    ) -> Option<Self> {
-        None
-    }
+        _: &mut Self::State,
+    );
 }
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Empty,
     Float(f32),
     Int(i32),
     Bool(bool),
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     TextBuffer(String),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::Empty
+    }
 }
 
 impl Hash for Value {
@@ -103,26 +78,21 @@ impl Hash for Value {
                 imx.hash(state);
             }
             Value::TextBuffer(txt) => txt.hash(state),
+            Value::Empty => {
+            }
         };
     }
 }
 
-pub fn default_start_editor_1080p<S>(title: &str, show: ShowFunc<S>)
-where
-    S: Clone + Default + 'static,
-{
-    start_editor(title, 1920.0, 1080.0, S::default(), show, true)
-}
-
-pub fn start_editor<S>(
+pub fn start_editor<A, S>(
     title: &str,
     width: f64,
     height: f64,
+    app: A,
     initial_state: S,
-    show: ShowFunc<S>,
-    enable_imnodes: bool,
 ) where
-    S: Clone + Default + 'static,
+    A: App<State = S>,
+    S: Sync + Send + Any + Sized + Component,
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -131,10 +101,14 @@ pub fn start_editor<S>(
     // This application either starts up, or panics here
 
     let (event_loop, gui) =
-        new_gui_system::<S>(title, width, height, initial_state, show, enable_imnodes);
+        new_gui_system::<A, S>(title, width, height, app, initial_state);
 
     // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
+    let mut dispatcher = DispatcherBuilder::new()
+        //.with_thread_local(crate::system::gui::DemoApp{ count: 0, imnodes: None})
+        .with_thread_local(gui)
+        .build();
+
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -171,16 +145,16 @@ pub fn start_editor<S>(
     });
 }
 
-pub fn new_gui_system<S>(
+pub fn new_gui_system<A, S>(
     title: &str,
     width: f64,
     height: f64,
+    app: A,
     initial_state: S,
-    app: ShowFunc<S>,
-    enable_imnodes: bool,
-) -> (winit::event_loop::EventLoop<()>, GUI<S>)
+) -> (winit::event_loop::EventLoop<()>, GUI<A, S>)
 where
-    S: Clone + Default,
+    S: Sync + Send + Any + Sized + Component,
+    A: App<State = S>,
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -275,10 +249,6 @@ where
 
             let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
 
-            // ImNodes needs to be passed directly into the show function
-            let imnodes = imnodes::Context::new();
-            let editor = imnodes.create_editor();
-
             let gui = GUI {
                 window_title: title.to_string(),
                 imgui,
@@ -294,24 +264,10 @@ where
                 queue,
                 surface_desc,
                 platform,
-                app,
                 last_frame: None,
                 last_cursor: None,
+                app,
                 state: initial_state,
-                imnodes: {
-                    if !enable_imnodes {
-                        None
-                    } else {
-                        Some(imnodes)
-                    }
-                },
-                imnodes_editor: {
-                    if !enable_imnodes {
-                        None
-                    } else {
-                        Some(editor)
-                    }
-                },
             };
 
             return (event_loop, gui);
