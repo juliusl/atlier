@@ -9,9 +9,10 @@ use winit::event_loop::ControlFlow;
 
 use super::App;
 
-pub struct GUI<A>
+pub struct GUI<A, F>
 where
     A: App,
+    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder)
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -30,7 +31,7 @@ where
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
     pub app: A,
-    pub extension: fn(&mut A, &mut World, &mut DispatcherBuilder),
+    pub extension: F,
     pub app_world: World,
     pub app_dispatcher: Option<Dispatcher<'static, 'static>>,
 }
@@ -57,9 +58,10 @@ pub struct GUISystemData<'a> {
     update: ReadStorage<'a, GUIUpdate>,
 }
 
-impl<'a, A> System<'a> for GUI<A>
+impl<'a, A, F> System<'a> for GUI<A, F>
 where
     A: 'a + App + for<'c> specs::System<'c> + Send,
+    F: Fn(&mut A, &mut World, &mut DispatcherBuilder) 
 {
     type SystemData = GUISystemData<'a>;
 
