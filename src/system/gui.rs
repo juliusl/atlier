@@ -9,10 +9,9 @@ use winit::event_loop::ControlFlow;
 
 use super::App;
 
-pub struct GUI<A, S>
+pub struct GUI<A>
 where
-    A: App,
-    S: Any + Sized + Send + Sync + Component
+    A: App
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -31,7 +30,6 @@ where
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
     pub app: A,
-    pub state: S,
 }
 
 pub struct GUIUpdate {
@@ -58,7 +56,7 @@ pub struct GUISystemData<'a, S: Any + Sized + Send + Sync + Component> {
     app_state: WriteStorage<'a, S>,
 }
 
-impl<'a, A, S> System<'a> for GUI<A, S>
+impl<'a, A, S> System<'a> for GUI<A>
 where
     S: Any + Sized + Send + Sync + Component,
     A: App<State = S>,

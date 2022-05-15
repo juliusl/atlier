@@ -108,7 +108,7 @@ pub fn start_editor<A, S>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
 
-    let (event_loop, mut gui) = new_gui_system::<A, S>(title, width, height, app, initial_state);
+    let (event_loop, mut gui) = new_gui_system::<A, S>(title, width, height, app);
 
     // Create the specs dispatcher
     let dispatcher = DispatcherBuilder::new();
@@ -124,6 +124,7 @@ pub fn start_editor<A, S>(
         .maybe_with(Some(GUIUpdate {
             event: winit::event::Event::Suspended,
         }))
+        .with(initial_state)
         .build();
 
     // Starts the event loop
@@ -159,8 +160,7 @@ pub fn new_gui_system<A, S>(
     width: f64,
     height: f64,
     app: A,
-    initial_state: S,
-) -> (winit::event_loop::EventLoop<()>, GUI<A, S>)
+) -> (winit::event_loop::EventLoop<()>, GUI<A>)
 where
     S: Sync + Send + Any + Sized + Component,
     A: App<State = S>,
@@ -276,7 +276,6 @@ where
                 last_frame: None,
                 last_cursor: None,
                 app,
-                state: initial_state,
             };
 
             return (event_loop, gui);
