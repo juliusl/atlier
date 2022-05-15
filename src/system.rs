@@ -5,9 +5,12 @@ mod window;
 use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
+use specs::AsyncDispatcher;
 use specs::Builder;
 use specs::Component;
+use specs::Dispatcher;
 use specs::DispatcherBuilder;
+use specs::System;
 use specs::World;
 use specs::WorldExt;
 use std::any::Any;
@@ -33,7 +36,7 @@ pub trait App: Any + Sized {
     fn title() -> &'static str;
 
     /// default window_size to use for this app
-    fn window_size() -> &'static [f64; 2] {
+    fn window_size() -> &'static [f32; 2] {
         &[1920.0, 1080.0]
     }
 
@@ -97,9 +100,9 @@ pub fn start_editor<A, S>(
     height: f64,
     app: A,
     initial_state: S,
-    extend: fn(&mut A, &mut World, DispatcherBuilder) -> DispatcherBuilder<'static, 'static>,
+    extend: fn(&mut A, &mut World, &mut DispatcherBuilder)
 ) where
-    A: App<State = S>,
+    A: App<State = S> + for<'a> System<'a> + Send,
     S: Sync + Send + Any + Sized + Component,
 {
     let mut w = World::new();
@@ -108,13 +111,10 @@ pub fn start_editor<A, S>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
 
-    let (event_loop, mut gui) = new_gui_system::<A, S>(title, width, height, app);
+    let (event_loop, gui) = new_gui_system::<A, S>(title, width, height, app, extend);
 
     // Create the specs dispatcher
     let dispatcher = DispatcherBuilder::new();
-
-    let dispatcher = extend(&mut gui.app, &mut w, dispatcher);
-
     let mut dispatcher = dispatcher.with_thread_local(gui).build();
     dispatcher.setup(&mut w);
 
@@ -160,10 +160,11 @@ pub fn new_gui_system<A, S>(
     width: f64,
     height: f64,
     app: A,
+    extension: fn(&mut A, &mut World, &mut DispatcherBuilder),
 ) -> (winit::event_loop::EventLoop<()>, GUI<A>)
 where
     S: Sync + Send + Any + Sized + Component,
-    A: App<State = S>,
+    A: App<State = S> + System<'static>,
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -276,6 +277,9 @@ where
                 last_frame: None,
                 last_cursor: None,
                 app,
+                extension,
+                app_world: World::new(),
+                app_dispatcher: None,
             };
 
             return (event_loop, gui);

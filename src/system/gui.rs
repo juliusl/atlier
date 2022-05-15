@@ -1,8 +1,12 @@
 use std::any::Any;
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::rc::Rc;
 use std::time::Instant;
 
 use imgui::Ui;
 use specs::prelude::*;
+use specs::shred::DynamicSystemData;
 use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
@@ -11,7 +15,7 @@ use super::App;
 
 pub struct GUI<A>
 where
-    A: App
+    A: App,
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -30,6 +34,9 @@ where
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
     pub app: A,
+    pub extension: fn(&mut A, &mut World, &mut DispatcherBuilder),
+    pub app_world: World,
+    pub app_dispatcher: Option<Dispatcher<'static, 'static>>,
 }
 
 pub struct GUIUpdate {
@@ -59,9 +66,19 @@ pub struct GUISystemData<'a, S: Any + Sized + Send + Sync + Component> {
 impl<'a, A, S> System<'a> for GUI<A>
 where
     S: Any + Sized + Send + Sync + Component,
-    A: App<State = S>,
+    A: 'a + App<State = S> + for<'c> specs::System<'c> + Send,
 {
     type SystemData = GUISystemData<'a, S>;
+
+    fn setup(&mut self, world: &mut World) {
+        <Self::SystemData as DynamicSystemData>::setup(&self.accessor(), world);
+        let mut app_world = World::new();
+        let mut app_dispatcher = DispatcherBuilder::new();
+        (self.extension)(&mut self.app, &mut app_world, &mut app_dispatcher);
+        <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), &mut app_world);
+        self.app_world = app_world;
+        self.app_dispatcher = Some(app_dispatcher.build());
+    }
 
     fn run(&mut self, data: Self::SystemData) {
         let mut control_state = data.control_state;
@@ -164,6 +181,14 @@ where
 
             self.platform
                 .handle_event(self.imgui.io_mut(), &self.window, &event);
+        }
+
+        // Update app state
+        if let Some(app_dispatcher) = &mut self.app_dispatcher {
+            self.app.run_now(&self.app_world);
+
+            app_dispatcher.dispatch(&self.app_world);
+            self.app_world.maintain();
         }
     }
 }
