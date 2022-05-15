@@ -26,9 +26,8 @@ pub use font::segoe_ui;
 
 /// The App trait allows an "editor" to be shown
 pub trait App: Any + Sized {
-
-    /// title of this app
-    fn title() -> &'static str;
+    /// name of this app
+    fn name() -> &'static str;
 
     /// default window_size to use for this app
     fn window_size() -> &'static [f32; 2] {
@@ -89,14 +88,15 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor<A>(
+pub fn start_editor<A, F>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    extend: fn(&mut A, &mut World, &mut DispatcherBuilder)
+    extend: F
 ) where
     A: App + for<'a> System<'a> + Send,
+    F: 'static + Fn(&mut A, &mut World, &mut DispatcherBuilder)
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -104,7 +104,7 @@ pub fn start_editor<A>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
 
-    let (event_loop, gui) = new_gui_system::<A>(title, width, height, app, extend);
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extend);
 
     // Create the specs dispatcher
     let dispatcher = DispatcherBuilder::new();
@@ -147,15 +147,16 @@ pub fn start_editor<A>(
     });
 }
 
-pub fn new_gui_system<A>(
+pub fn new_gui_system<A, F>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    extension: fn(&mut A, &mut World, &mut DispatcherBuilder),
-) -> (winit::event_loop::EventLoop<()>, GUI<A>)
+    extension: F,
+) -> (winit::event_loop::EventLoop<()>, GUI<A, F>)
 where
     A: App + System<'static>,
+    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder)
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
