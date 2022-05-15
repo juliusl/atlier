@@ -24,24 +24,32 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-pub trait App: Any + Sized 
-{
-    type State: Sync + Send + Any + Sized + Component + Clone;
+/// The App trait allows an "editor" to be shown
+pub trait App: Any + Sized {
+    /// This state
+    type State: Sync + Send + Any + Sized + Clone;
 
     /// title of this app
     fn title() -> &'static str;
 
     /// default window_size to use for this app
-    fn window_size() -> &'static [f64;2] {
+    fn window_size() -> &'static [f64; 2] {
         &[1920.0, 1080.0]
     }
 
-    /// Show's the editor
-    fn show_editor(
-        &mut self,
-        _: &imgui::Ui,
-        _: &mut Self::State,
-    );
+    /// Shows the editor
+    fn show_editor(&mut self, _: &imgui::Ui, _: &mut Self::State);
+}
+
+/// The Extension trait allows customization of the UI implementation
+/// Requires the state to implement specs:Component
+pub trait Extension: App {
+    /// extend the World by adding additional resources and systems
+    fn extend(
+        self,
+        world: &mut World,
+        dispatcher: DispatcherBuilder<'static, 'static>,
+    ) -> DispatcherBuilder<'static, 'static>;
 }
 
 #[derive(Debug, Clone)]
@@ -78,8 +86,7 @@ impl Hash for Value {
                 imx.hash(state);
             }
             Value::TextBuffer(txt) => txt.hash(state),
-            Value::Empty => {
-            }
+            Value::Empty => {}
         };
     }
 }
@@ -90,6 +97,7 @@ pub fn start_editor<A, S>(
     height: f64,
     app: A,
     initial_state: S,
+    extend: fn(&mut A, &mut World, DispatcherBuilder) -> DispatcherBuilder<'static, 'static>,
 ) where
     A: App<State = S>,
     S: Sync + Send + Any + Sized + Component,
@@ -100,15 +108,14 @@ pub fn start_editor<A, S>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
 
-    let (event_loop, gui) =
-        new_gui_system::<A, S>(title, width, height, app, initial_state);
+    let (event_loop, mut gui) = new_gui_system::<A, S>(title, width, height, app, initial_state);
 
     // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new()
-        //.with_thread_local(crate::system::gui::DemoApp{ count: 0, imnodes: None})
-        .with_thread_local(gui)
-        .build();
+    let dispatcher = DispatcherBuilder::new();
 
+    let dispatcher = extend(&mut gui.app, &mut w, dispatcher);
+
+    let mut dispatcher = dispatcher.with_thread_local(gui).build();
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -121,6 +128,8 @@ pub fn start_editor<A, S>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
+        dispatcher.dispatch_seq(&w);
+
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
         if let Some(event) = event.to_static() {

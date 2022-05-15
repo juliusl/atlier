@@ -12,7 +12,7 @@ use super::App;
 pub struct GUI<A, S>
 where
     A: App,
-    S: Any + Sized + Send + Sync
+    S: Any + Sized + Send + Sync + Component
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
