@@ -1,7 +1,3 @@
-use std::any::Any;
-use std::borrow::Borrow;
-use std::borrow::Cow;
-use std::rc::Rc;
 use std::time::Instant;
 
 use imgui::Ui;
@@ -56,35 +52,38 @@ impl Default for ControlState {
 }
 
 #[derive(SystemData)]
-pub struct GUISystemData<'a, S: Any + Sized + Send + Sync + Component> {
+pub struct GUISystemData<'a> {
     control_state: Write<'a, ControlState>,
     update: ReadStorage<'a, GUIUpdate>,
-    entities: Entities<'a>,
-    app_state: WriteStorage<'a, S>,
 }
 
-impl<'a, A, S> System<'a> for GUI<A>
+impl<'a, A> System<'a> for GUI<A>
 where
-    S: Any + Sized + Send + Sync + Component,
-    A: 'a + App<State = S> + for<'c> specs::System<'c> + Send,
+    A: 'a + App + for<'c> specs::System<'c> + Send,
 {
-    type SystemData = GUISystemData<'a, S>;
+    type SystemData = GUISystemData<'a>;
 
     fn setup(&mut self, world: &mut World) {
         <Self::SystemData as DynamicSystemData>::setup(&self.accessor(), world);
-        let mut app_world = World::new();
+        let mut app_world = &mut self.app_world;
         let mut app_dispatcher = DispatcherBuilder::new();
-        (self.extension)(&mut self.app, &mut app_world, &mut app_dispatcher);
-        <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), &mut app_world);
-        self.app_world = app_world;
-        self.app_dispatcher = Some(app_dispatcher.build());
+
+        (self.extension)(&mut self.app, app_world, &mut app_dispatcher);
+        <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), app_world);
+        let mut dispatcher = app_dispatcher.build();
+        dispatcher.setup(&mut app_world);
+
+        self.app_dispatcher = Some(dispatcher);
     }
 
     fn run(&mut self, data: Self::SystemData) {
+        if let Some(app_dispatcher) = &mut self.app_dispatcher {
+            app_dispatcher.dispatch(&self.app_world);
+            self.app.run_now(&self.app_world);
+            self.app_world.maintain();
+        }
+        
         let mut control_state = data.control_state;
-        let entities = data.entities;
-        let mut app_state = data.app_state;
-
         for GUIUpdate { event } in data.update.join() {
             control_state.control_flow = Some(ControlFlow::Poll);
 
@@ -130,11 +129,7 @@ where
 
                     let ui: Ui = self.imgui.frame();
 
-                    for e in entities.join() {
-                        if let Some(state) = app_state.get_mut(e) {
-                            self.app.show_editor(&ui, state);
-                        }
-                    }
+                    self.app.show_editor(&ui);
 
                     let mut encoder: wgpu::CommandEncoder = self
                         .device
@@ -181,14 +176,6 @@ where
 
             self.platform
                 .handle_event(self.imgui.io_mut(), &self.window, &event);
-        }
-
-        // Update app state
-        if let Some(app_dispatcher) = &mut self.app_dispatcher {
-            self.app.run_now(&self.app_world);
-
-            app_dispatcher.dispatch(&self.app_world);
-            self.app_world.maintain();
         }
     }
 }

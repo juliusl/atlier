@@ -5,10 +5,7 @@ mod window;
 use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
-use specs::AsyncDispatcher;
 use specs::Builder;
-use specs::Component;
-use specs::Dispatcher;
 use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
@@ -29,8 +26,6 @@ pub use font::segoe_ui;
 
 /// The App trait allows an "editor" to be shown
 pub trait App: Any + Sized {
-    /// This state
-    type State: Sync + Send + Any + Sized + Clone;
 
     /// title of this app
     fn title() -> &'static str;
@@ -41,7 +36,7 @@ pub trait App: Any + Sized {
     }
 
     /// Shows the editor
-    fn show_editor(&mut self, _: &imgui::Ui, _: &mut Self::State);
+    fn show_editor(&mut self, ui: &imgui::Ui);
 }
 
 /// The Extension trait allows customization of the UI implementation
@@ -94,16 +89,14 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor<A, S>(
+pub fn start_editor<A>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    initial_state: S,
     extend: fn(&mut A, &mut World, &mut DispatcherBuilder)
 ) where
-    A: App<State = S> + for<'a> System<'a> + Send,
-    S: Sync + Send + Any + Sized + Component,
+    A: App + for<'a> System<'a> + Send,
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -111,7 +104,7 @@ pub fn start_editor<A, S>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
 
-    let (event_loop, gui) = new_gui_system::<A, S>(title, width, height, app, extend);
+    let (event_loop, gui) = new_gui_system::<A>(title, width, height, app, extend);
 
     // Create the specs dispatcher
     let dispatcher = DispatcherBuilder::new();
@@ -124,7 +117,6 @@ pub fn start_editor<A, S>(
         .maybe_with(Some(GUIUpdate {
             event: winit::event::Event::Suspended,
         }))
-        .with(initial_state)
         .build();
 
     // Starts the event loop
@@ -155,7 +147,7 @@ pub fn start_editor<A, S>(
     });
 }
 
-pub fn new_gui_system<A, S>(
+pub fn new_gui_system<A>(
     title: &str,
     width: f64,
     height: f64,
@@ -163,8 +155,7 @@ pub fn new_gui_system<A, S>(
     extension: fn(&mut A, &mut World, &mut DispatcherBuilder),
 ) -> (winit::event_loop::EventLoop<()>, GUI<A>)
 where
-    S: Sync + Send + Any + Sized + Component,
-    A: App<State = S> + System<'static>,
+    A: App + System<'static>,
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
