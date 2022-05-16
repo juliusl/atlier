@@ -103,7 +103,7 @@ pub fn start_editor<A, F>(
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
-
+    // As part of the gui system setup, the gui system will also begin setup of the application system
     let (event_loop, gui) = new_gui_system(title, width, height, app, extend);
 
     // Create the specs dispatcher
@@ -121,7 +121,9 @@ pub fn start_editor<A, F>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
-        dispatcher.dispatch_seq(&w);
+        // Note: We technically only need the thread local systems to be called because we don't 
+        // have any par able systems. However if we do add any this next line will need to be uncommented 
+        //dispatcher.dispatch_seq(&w);
 
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
@@ -135,6 +137,7 @@ pub fn start_editor<A, F>(
             dispatcher.dispatch_thread_local(&w);
         }
 
+        // This cleans up un-used resources in the world
         w.maintain();
 
         // The gui_system can dispatch back some control state, which we can read here
