@@ -6,10 +6,12 @@ use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use specs::Builder;
+use specs::Component;
 use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
+use specs::storage::DenseVecStorage;
 use std::any::Any;
 use std::hash::Hash;
 use window::Hardware;
@@ -49,7 +51,59 @@ pub trait Extension: App {
     ) -> DispatcherBuilder<'static, 'static>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Default, Debug, Component)]
+#[storage(DenseVecStorage)]
+pub struct Attribute {
+    id: u32,
+    name: String,
+    value: Value,
+}
+
+impl Attribute {
+    pub fn new(id: u32, name: String, value: Value) -> Attribute {
+        Attribute {
+            id,
+            name,
+            value,
+        }
+    }
+}
+
+impl App for Attribute {
+    fn name() -> &'static str {
+        "Attribute"
+    }
+
+    fn show_editor(&mut self, ui: &imgui::Ui) {
+        let label = format!("{} {:#4x}", self.name, self.id);
+        match &mut self.value {
+            Value::Empty => { 
+                ui.label_text(label, "Empty Attribute");
+            },
+            Value::Float(float) => {
+                ui.input_float(label, float).build();
+            },
+            Value::Int(int) => {
+                ui.input_int(label, int).build();
+            },
+            Value::Bool(bool) => {
+                ui.checkbox(label,  bool);
+            },
+            Value::FloatRange(f1, f2, f3) => {
+                ui.input_float3(label, &mut [*f1, *f2, *f3]).build();
+            },
+            Value::IntRange(i1, i2, i3) => {
+                ui.input_int3(label, &mut [*i1, *i2 ,*i3]).build();
+            },
+            Value::TextBuffer(text) => {
+                ui.input_text(label, text).build();
+            },
+        };
+    }
+}
+
+#[derive(Debug, Clone, Component)]
+#[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
     Float(f32),
