@@ -67,6 +67,16 @@ impl Attribute {
             value,
         }
     }
+
+    // sets the id/owner of this attribute
+    pub fn set_id(&mut self, id: u32) {
+        self.id = id; 
+    }
+
+    /// read the name of this attribute
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
 }
 
 impl App for Attribute {
