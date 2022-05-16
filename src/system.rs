@@ -5,12 +5,12 @@ mod window;
 use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
-use imnodes::IdentifierGenerator;
-use imnodes::NodeScope;
 use specs::Builder;
 use specs::DispatcherBuilder;
+use specs::System;
 use specs::World;
 use specs::WorldExt;
+use std::any::Any;
 use std::hash::Hash;
 use window::Hardware;
 use window::WindowContext;
@@ -24,66 +24,46 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-pub type ShowFunc<S> = fn(&imgui::Ui, &S, Option<&mut imnodes::EditorContext>) -> Option<S>;
-
-pub trait App
-where
-    Self: Clone + Default,
-{
-    /// title of this app
-    fn title() -> &'static str;
+/// The App trait allows an "editor" to be shown
+pub trait App: Any + Sized {
+    /// name of this app
+    fn name() -> &'static str;
 
     /// default window_size to use for this app
-    fn window_size() -> &'static [f64;2] {
+    fn window_size() -> &'static [f32; 2] {
         &[1920.0, 1080.0]
     }
 
-    /// start the editor if Self is also the expected State
-    fn start_editor(mut initial_state: Option<Self>)
-    where
-        Self: Clone + Default + 'static,
-    {
-        let &[width, height] = Self::window_size();
-        if let None = initial_state {
-            initial_state = Some(Self::default());
-        }
+    /// Shows the editor
+    fn show_editor(&mut self, ui: &imgui::Ui);
+}
 
-        start_editor(
-            Self::title(),
-            width,
-            height,
-            initial_state.expect("This should've been the default state"),
-            Self::show,
-            true,
-        );
-    }
-
-    /// show's the UI for this app
-    fn show(
-        ui: &imgui::Ui,
-        state: &Self,
-        imnode_editor: Option<&mut imnodes::EditorContext>,
-    ) -> Option<Self>;
-
-    // show the app's node for this app
-    fn show_node(
-        _: &imgui::Ui,
-        _: &Self,
-        _: NodeScope,
-        _: &mut IdentifierGenerator,
-    ) -> Option<Self> {
-        None
-    }
+/// The Extension trait allows customization of the UI implementation
+/// Requires the state to implement specs:Component
+pub trait Extension: App {
+    /// extend the World by adding additional resources and systems
+    fn extend(
+        self,
+        world: &mut World,
+        dispatcher: DispatcherBuilder<'static, 'static>,
+    ) -> DispatcherBuilder<'static, 'static>;
 }
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Empty,
     Float(f32),
     Int(i32),
     Bool(bool),
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     TextBuffer(String),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::Empty
+    }
 }
 
 impl Hash for Value {
@@ -103,38 +83,32 @@ impl Hash for Value {
                 imx.hash(state);
             }
             Value::TextBuffer(txt) => txt.hash(state),
+            Value::Empty => {}
         };
     }
 }
 
-pub fn default_start_editor_1080p<S>(title: &str, show: ShowFunc<S>)
-where
-    S: Clone + Default + 'static,
-{
-    start_editor(title, 1920.0, 1080.0, S::default(), show, true)
-}
-
-pub fn start_editor<S>(
+pub fn start_editor<A, F>(
     title: &str,
     width: f64,
     height: f64,
-    initial_state: S,
-    show: ShowFunc<S>,
-    enable_imnodes: bool,
+    app: A,
+    extend: F
 ) where
-    S: Clone + Default + 'static,
+    A: App + for<'a> System<'a> + Send,
+    F: 'static + Fn(&mut A, &mut World, &mut DispatcherBuilder)
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
-
-    let (event_loop, gui) =
-        new_gui_system::<S>(title, width, height, initial_state, show, enable_imnodes);
+    // As part of the gui system setup, the gui system will also begin setup of the application system
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extend);
 
     // Create the specs dispatcher
-    let mut dispatcher = DispatcherBuilder::new().with_thread_local(gui).build();
+    let dispatcher = DispatcherBuilder::new();
+    let mut dispatcher = dispatcher.with_thread_local(gui).build();
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -147,6 +121,10 @@ pub fn start_editor<S>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
+        // Note: We technically only need the thread local systems to be called because we don't 
+        // have any par able systems. However if we do add any this next line will need to be uncommented 
+        //dispatcher.dispatch_seq(&w);
+
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
         if let Some(event) = event.to_static() {
@@ -159,6 +137,7 @@ pub fn start_editor<S>(
             dispatcher.dispatch_thread_local(&w);
         }
 
+        // This cleans up un-used resources in the world
         w.maintain();
 
         // The gui_system can dispatch back some control state, which we can read here
@@ -171,16 +150,16 @@ pub fn start_editor<S>(
     });
 }
 
-pub fn new_gui_system<S>(
+pub fn new_gui_system<A, F>(
     title: &str,
     width: f64,
     height: f64,
-    initial_state: S,
-    app: ShowFunc<S>,
-    enable_imnodes: bool,
-) -> (winit::event_loop::EventLoop<()>, GUI<S>)
+    app: A,
+    extension: F,
+) -> (winit::event_loop::EventLoop<()>, GUI<A, F>)
 where
-    S: Clone + Default,
+    A: App + System<'static>,
+    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder)
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -275,10 +254,6 @@ where
 
             let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
 
-            // ImNodes needs to be passed directly into the show function
-            let imnodes = imnodes::Context::new();
-            let editor = imnodes.create_editor();
-
             let gui = GUI {
                 window_title: title.to_string(),
                 imgui,
@@ -294,24 +269,12 @@ where
                 queue,
                 surface_desc,
                 platform,
-                app,
                 last_frame: None,
                 last_cursor: None,
-                state: initial_state,
-                imnodes: {
-                    if !enable_imnodes {
-                        None
-                    } else {
-                        Some(imnodes)
-                    }
-                },
-                imnodes_editor: {
-                    if !enable_imnodes {
-                        None
-                    } else {
-                        Some(editor)
-                    }
-                },
+                app,
+                extension,
+                app_world: World::new(),
+                app_dispatcher: None,
             };
 
             return (event_loop, gui);
