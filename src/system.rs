@@ -85,7 +85,7 @@ impl App for Attribute {
     }
 
     fn show_editor(&mut self, ui: &imgui::Ui) {
-        let label = format!("{} {:#4x}", self.name, self.id);
+        let label = format!("{}_{:#4x}", self.name, self.id);
         match &mut self.value {
             Value::Empty => { 
                 ui.label_text(label, "Empty Attribute");
