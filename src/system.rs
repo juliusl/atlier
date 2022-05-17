@@ -95,6 +95,8 @@ impl App for Attribute {
 
     fn show_editor(&mut self, ui: &imgui::Ui) {
         let label = format!("{}_{:#4x}", self.name, self.id);
+        let name_label = format!("name of {}", label);
+        ui.set_next_item_width(200.0);
         match &mut self.value {
             Value::Empty => { 
                 ui.label_text(label, "Empty Attribute");
@@ -118,6 +120,9 @@ impl App for Attribute {
                 ui.input_text(label, text).build();
             },
         };
+        ui.set_next_item_width(200.0);
+        ui.input_text(name_label, &mut self.name).build();
+        ui.new_line();
     }
 }
 
