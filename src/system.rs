@@ -3,6 +3,7 @@ mod gui;
 mod window;
 
 use imgui::FontSource;
+use imgui::Ui;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
 use specs::storage::DenseVecStorage;
@@ -55,67 +56,39 @@ pub struct Attribute {
     id: u32,
     name: String,
     value: Value,
-}
-
-pub struct EditAttribute<'a> {
-    parent: &'a mut Attribute,
-    editing: Attribute,
-    changed: bool,
-}
-
-impl<'a> EditAttribute<'a> {
-    pub fn edit_attr(&mut self, label: impl AsRef<str>, ui: &imgui::Ui) {
-        match self.editing.get_value_mut() {
-            Value::TextBuffer(val) => {
-                self.changed ^= ui.input_text(label.as_ref(), val).build();
-            }
-            Value::Int(val) => {
-                self.changed ^= ui.input_int(label.as_ref(), val).build();
-            }
-            Value::Float(val) => {
-                self.changed ^= ui.input_float(label.as_ref(), val).build();
-            }
-            Value::Bool(val) => {
-                self.changed ^= ui.checkbox(label.as_ref(), val);
-            }
-            _ => todo!(),
-        }
-
-        ui.disabled(self.changed, || {
-            if ui.button(format!("save changes")) {
-                self.commit_changes();
-                self.changed = false;
-            }
-        });
-
-        ui.same_line();
-        if ui.button(format!("clear changes")) {
-            self.clear_changes();
-        }
-    }
-
-    pub fn commit_changes(&mut self) {
-        let value = self.parent.get_value_mut();
-        *value = self.editing.value.clone();
-    }
-
-    pub fn clear_changes(&mut self) {
-        let clone = self.parent.clone();
-        self.editing = clone;
-    }
+    editing: Option<(String, Value)>,
 }
 
 impl Attribute {
     pub fn new(id: u32, name: String, value: Value) -> Attribute {
-        Attribute { id, name, value }
+        Attribute { id, name, value, editing: None }
     }
 
-    pub fn edit<'a>(&'a mut self) -> EditAttribute<'a> {
-        let clone = self.clone();
-        EditAttribute {
-            parent: self,
-            editing: clone,
-            changed: false,
+    /// helper function to show an editor for the internal state of the attribute
+    pub fn edit(&mut self, ui: &Ui) {
+        if let Some(_) = self.editing {
+            self.show_editor(ui);
+
+            if ui.button(format!("save changes")) {
+                if let Some((name, value)) = &self.editing {
+                    self.name = name.clone();
+                    self.value = value.clone();
+                    self.editing = None;
+                }
+            }
+
+            ui.same_line();
+            if ui.button(format!("reset changes")) {
+                if let Some((name, value)) = &mut self.editing {
+                    *value = self.value.clone();
+                    *name = self.name.clone();
+                }
+            }
+        } else {
+            self.show_editor(ui);
+            if ui.button(format!("edit attribute")) {
+                self.editing = Some((self.name.clone(), self.value.clone()));
+            }
         }
     }
 
@@ -145,10 +118,20 @@ impl App for Attribute {
     }
 
     fn show_editor(&mut self, ui: &imgui::Ui) {
-        let label = format!("{}_{:#4x}", self.name, self.id);
-        let name_label = format!("name of {}", label);
+        let label = format!("{} {:#4x}", self.name, self.id);
+
+        let editing= if let Some((name, e)) = &mut self.editing {
+            let name_label = format!("name of {}", label);
+            ui.set_next_item_width(200.0);
+            ui.input_text(name_label, name).build();
+            format!("initial value of {} {:#4x}", self.name, self.id);
+            e
+        } else {
+            &mut self.value
+        };
+
         ui.set_next_item_width(200.0);
-        match &mut self.value {
+        match editing {
             Value::Empty => {
                 ui.label_text(label, "Empty Attribute");
             }
@@ -171,9 +154,6 @@ impl App for Attribute {
                 ui.input_text(label, text).build();
             }
         };
-        ui.set_next_item_width(200.0);
-        ui.input_text(name_label, &mut self.name).build();
-        ui.new_line();
     }
 }
 
