@@ -69,7 +69,7 @@ impl Attribute {
         if let Some(_) = self.editing {
             self.show_editor(ui);
 
-            if ui.button(format!("save changes")) {
+            if ui.button(format!("save changes [{} {}]", self.name(), self.id)) {
                 if let Some((name, value)) = &self.editing {
                     self.name = name.clone();
                     self.value = value.clone();
@@ -78,7 +78,7 @@ impl Attribute {
             }
 
             ui.same_line();
-            if ui.button(format!("reset changes")) {
+            if ui.button(format!("reset changes [{} {}]", self.name(), self.id)) {
                 if let Some((name, value)) = &mut self.editing {
                     *value = self.value.clone();
                     *name = self.name.clone();
@@ -86,7 +86,7 @@ impl Attribute {
             }
         } else {
             self.show_editor(ui);
-            if ui.button(format!("edit attribute")) {
+            if ui.button(format!("edit [{} {}]", self.name(), self.id)) {
                 self.editing = Some((self.name.clone(), self.value.clone()));
             }
         }
