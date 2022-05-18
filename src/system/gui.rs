@@ -9,10 +9,11 @@ use winit::event_loop::ControlFlow;
 
 use super::App;
 
-pub struct GUI<A, F>
+pub struct GUI<A, F, Ext>
 where
     A: App,
-    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder)
+    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: FnMut(&World, &Ui),
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -32,6 +33,7 @@ where
     pub last_cursor: Option<imgui::MouseCursor>,
     pub app: A,
     pub extension: F,
+    pub ext_app: Ext,
     pub app_world: World,
     pub app_dispatcher: Option<Dispatcher<'static, 'static>>,
 }
@@ -58,10 +60,11 @@ pub struct GUISystemData<'a> {
     update: ReadStorage<'a, GUIUpdate>,
 }
 
-impl<'a, A, F> System<'a> for GUI<A, F>
+impl<'a, A, F, Ext> System<'a> for GUI<A, F, Ext>
 where
     A: 'a + App + for<'c> specs::System<'c> + Send,
-    F: Fn(&mut A, &mut World, &mut DispatcherBuilder) 
+    F: Fn(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: FnMut(&World, &Ui),
 {
     type SystemData = GUISystemData<'a>;
 
@@ -141,6 +144,7 @@ where
                         .expect("Failed to prepare frame");
 
                     let ui: Ui = self.imgui.frame();
+                    (self.ext_app)(&self.app_world, &ui);
 
                     // This is where we actually render the app's ui
                     // whatever state the app is in at this point is what the ui will see
@@ -171,7 +175,7 @@ where
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(wgpu::Color {
                                     r: 0.1,
-                                    g: 0.4,
+                                    g: 0.2,
                                     b: 0.3,
                                     a: 1.0,
                                 }),

@@ -3,9 +3,12 @@ mod gui;
 mod window;
 
 use imgui::FontSource;
+use imgui::Ui;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
+use specs::storage::DenseVecStorage;
 use specs::Builder;
+use specs::Component;
 use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
@@ -41,15 +44,121 @@ pub trait App: Any + Sized {
 /// The Extension trait allows customization of the UI implementation
 /// Requires the state to implement specs:Component
 pub trait Extension: App {
-    /// extend the World by adding additional resources and systems
-    fn extend(
-        self,
-        world: &mut World,
-        dispatcher: DispatcherBuilder<'static, 'static>,
-    ) -> DispatcherBuilder<'static, 'static>;
+    /// extend_app_world get's called inside the event loop
+    /// app_world is called here so that systems that aren't already added
+    /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
+    fn extend_app_world(&mut self, app_world: &World, ui: &imgui::Ui);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Default, Debug, Component)]
+#[storage(DenseVecStorage)]
+pub struct Attribute {
+    id: u32,
+    name: String,
+    value: Value,
+    editing: Option<(String, Value)>,
+}
+
+impl Attribute {
+    pub fn new(id: u32, name: String, value: Value) -> Attribute {
+        Attribute { id, name, value, editing: None }
+    }
+
+    /// helper function to show an editor for the internal state of the attribute
+    pub fn edit(&mut self, ui: &Ui) {
+        if let Some(_) = self.editing {
+            self.show_editor(ui);
+
+            if ui.button(format!("save changes [{} {}]", self.name(), self.id)) {
+                if let Some((name, value)) = &self.editing {
+                    self.name = name.clone();
+                    self.value = value.clone();
+                    self.editing = None;
+                }
+            }
+
+            ui.same_line();
+            if ui.button(format!("reset changes [{} {}]", self.name(), self.id)) {
+                if let Some((name, value)) = &mut self.editing {
+                    *value = self.value.clone();
+                    *name = self.name.clone();
+                }
+            }
+        } else {
+            self.show_editor(ui);
+            if ui.button(format!("edit [{} {}]", self.name(), self.id)) {
+                self.editing = Some((self.name.clone(), self.value.clone()));
+            }
+        }
+    }
+
+    pub fn get_value_mut(&mut self) -> &mut Value {
+        &mut self.value
+    }
+
+    // sets the id/owner of this attribute
+    pub fn set_id(&mut self, id: u32) {
+        self.id = id;
+    }
+
+    /// read the name of this attribute
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    /// read the current value of this attribute
+    pub fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
+impl App for Attribute {
+    fn name() -> &'static str {
+        "Attribute"
+    }
+
+    fn show_editor(&mut self, ui: &imgui::Ui) {
+        let label = format!("{} {:#4x}", self.name, self.id);
+
+        let editing= if let Some((name, e)) = &mut self.editing {
+            let name_label = format!("name of {}", label);
+            ui.set_next_item_width(200.0);
+            ui.input_text(name_label, name).build();
+            format!("initial value of {} {:#4x}", self.name, self.id);
+            e
+        } else {
+            &mut self.value
+        };
+
+        ui.set_next_item_width(200.0);
+        match editing {
+            Value::Empty => {
+                ui.label_text(label, "Empty Attribute");
+            }
+            Value::Float(float) => {
+                ui.input_float(label, float).build();
+            }
+            Value::Int(int) => {
+                ui.input_int(label, int).build();
+            }
+            Value::Bool(bool) => {
+                ui.checkbox(label, bool);
+            }
+            Value::FloatRange(f1, f2, f3) => {
+                ui.input_float3(label, &mut [*f1, *f2, *f3]).build();
+            }
+            Value::IntRange(i1, i2, i3) => {
+                ui.input_int3(label, &mut [*i1, *i2, *i3]).build();
+            }
+            Value::TextBuffer(text) => {
+                ui.input_text(label, text).build();
+            }
+        };
+    }
+}
+
+#[derive(Debug, Clone, Component)]
+#[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
     Float(f32),
@@ -88,15 +197,17 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor<A, F>(
+pub fn start_editor<A, F, Ext>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    extend: F
+    extend: F,
+    ext_app: Ext,
 ) where
     A: App + for<'a> System<'a> + Send,
-    F: 'static + Fn(&mut A, &mut World, &mut DispatcherBuilder)
+    F: 'static + Fn(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: 'static + FnMut(&World, &imgui::Ui),
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -104,7 +215,7 @@ pub fn start_editor<A, F>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(title, width, height, app, extend);
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extend, ext_app);
 
     // Create the specs dispatcher
     let dispatcher = DispatcherBuilder::new();
@@ -121,8 +232,8 @@ pub fn start_editor<A, F>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
-        // Note: We technically only need the thread local systems to be called because we don't 
-        // have any par able systems. However if we do add any this next line will need to be uncommented 
+        // Note: We technically only need the thread local systems to be called because we don't
+        // have any par able systems. However if we do add any this next line will need to be uncommented
         //dispatcher.dispatch_seq(&w);
 
         // THREAD LOCAL
@@ -150,16 +261,18 @@ pub fn start_editor<A, F>(
     });
 }
 
-pub fn new_gui_system<A, F>(
+pub fn new_gui_system<A, F, Ext>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
     extension: F,
-) -> (winit::event_loop::EventLoop<()>, GUI<A, F>)
+    ext_app: Ext,
+) -> (winit::event_loop::EventLoop<()>, GUI<A, F, Ext>)
 where
     A: App + System<'static>,
-    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder)
+    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: FnMut(&World, &imgui::Ui),
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -273,6 +386,7 @@ where
                 last_cursor: None,
                 app,
                 extension,
+                ext_app,
                 app_world: World::new(),
                 app_dispatcher: None,
             };
