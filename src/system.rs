@@ -5,13 +5,13 @@ mod window;
 use imgui::FontSource;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
+use specs::storage::DenseVecStorage;
 use specs::Builder;
 use specs::Component;
 use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
-use specs::storage::DenseVecStorage;
 use std::any::Any;
 use std::hash::Hash;
 use window::Hardware;
@@ -43,12 +43,10 @@ pub trait App: Any + Sized {
 /// The Extension trait allows customization of the UI implementation
 /// Requires the state to implement specs:Component
 pub trait Extension: App {
-    /// extend the World by adding additional resources and systems
-    fn extend(
-        self,
-        world: &mut World,
-        dispatcher: DispatcherBuilder<'static, 'static>,
-    ) -> DispatcherBuilder<'static, 'static>;
+    /// extend_app_world get's called inside the event loop
+    /// app_world is called here so that systems that aren't already added
+    /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
+    fn extend_app_world(&mut self, app_world: &World, ui: &imgui::Ui);
 }
 
 #[derive(Clone, Default, Debug, Component)]
@@ -59,35 +57,65 @@ pub struct Attribute {
     value: Value,
 }
 
-impl Attribute {
-    pub fn new(id: u32, name: String, value: Value) -> Attribute {
-        Attribute {
-            id,
-            name,
-            value,
+pub struct EditAttribute<'a> {
+    parent: &'a mut Attribute,
+    editing: Attribute,
+    changed: bool,
+}
+
+impl<'a> EditAttribute<'a> {
+    pub fn edit_attr(&mut self, label: impl AsRef<str>, ui: &imgui::Ui) {
+        match self.editing.get_value_mut() {
+            Value::TextBuffer(val) => {
+                self.changed ^= ui.input_text(label.as_ref(), val).build();
+            }
+            Value::Int(val) => {
+                self.changed ^= ui.input_int(label.as_ref(), val).build();
+            }
+            Value::Float(val) => {
+                self.changed ^= ui.input_float(label.as_ref(), val).build();
+            }
+            Value::Bool(val) => {
+                self.changed ^= ui.checkbox(label.as_ref(), val);
+            }
+            _ => todo!(),
+        }
+
+        ui.disabled(self.changed, || {
+            if ui.button(format!("save changes")) {
+                self.commit_changes();
+                self.changed = false;
+            }
+        });
+
+        ui.same_line();
+        if ui.button(format!("clear changes")) {
+            self.clear_changes();
         }
     }
 
-    pub fn edit_attr(
-        &mut self,
-        label: impl AsRef<str>,
-        ui: &imgui::Ui,
-    ) {
-        match self.get_value_mut()
-        {
-            Value::TextBuffer(val) => {
-                ui.input_text(label.as_ref(), val).build();
-            }
-            Value::Int(val) => {
-                ui.input_int(label.as_ref(), val).build();
-            }
-            Value::Float(val) => {
-                ui.input_float(label.as_ref(), val).build();
-            }
-            Value::Bool(val) => {
-                ui.checkbox(label.as_ref(), val);
-            }
-            _ => todo!(),
+    pub fn commit_changes(&mut self) {
+        let value = self.parent.get_value_mut();
+        *value = self.editing.value.clone();
+    }
+
+    pub fn clear_changes(&mut self) {
+        let clone = self.parent.clone();
+        self.editing = clone;
+    }
+}
+
+impl Attribute {
+    pub fn new(id: u32, name: String, value: Value) -> Attribute {
+        Attribute { id, name, value }
+    }
+
+    pub fn edit<'a>(&'a mut self) -> EditAttribute<'a> {
+        let clone = self.clone();
+        EditAttribute {
+            parent: self,
+            editing: clone,
+            changed: false,
         }
     }
 
@@ -97,7 +125,7 @@ impl Attribute {
 
     // sets the id/owner of this attribute
     pub fn set_id(&mut self, id: u32) {
-        self.id = id; 
+        self.id = id;
     }
 
     /// read the name of this attribute
@@ -121,27 +149,27 @@ impl App for Attribute {
         let name_label = format!("name of {}", label);
         ui.set_next_item_width(200.0);
         match &mut self.value {
-            Value::Empty => { 
+            Value::Empty => {
                 ui.label_text(label, "Empty Attribute");
-            },
+            }
             Value::Float(float) => {
                 ui.input_float(label, float).build();
-            },
+            }
             Value::Int(int) => {
                 ui.input_int(label, int).build();
-            },
+            }
             Value::Bool(bool) => {
-                ui.checkbox(label,  bool);
-            },
+                ui.checkbox(label, bool);
+            }
             Value::FloatRange(f1, f2, f3) => {
                 ui.input_float3(label, &mut [*f1, *f2, *f3]).build();
-            },
+            }
             Value::IntRange(i1, i2, i3) => {
-                ui.input_int3(label, &mut [*i1, *i2 ,*i3]).build();
-            },
+                ui.input_int3(label, &mut [*i1, *i2, *i3]).build();
+            }
             Value::TextBuffer(text) => {
                 ui.input_text(label, text).build();
-            },
+            }
         };
         ui.set_next_item_width(200.0);
         ui.input_text(name_label, &mut self.name).build();
@@ -224,8 +252,8 @@ pub fn start_editor<A, F, Ext>(
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
-        // Note: We technically only need the thread local systems to be called because we don't 
-        // have any par able systems. However if we do add any this next line will need to be uncommented 
+        // Note: We technically only need the thread local systems to be called because we don't
+        // have any par able systems. However if we do add any this next line will need to be uncommented
         //dispatcher.dispatch_seq(&w);
 
         // THREAD LOCAL
