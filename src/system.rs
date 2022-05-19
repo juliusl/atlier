@@ -113,6 +113,12 @@ impl Attribute {
     pub fn value(&self) -> &Value {
         &self.value
     }
+
+    /// read the current id of this attribute
+    /// This id is likely the entity owner of this attribute
+    pub fn id(&self) -> u32 {
+        self.id
+    }
 }
 
 impl App for Attribute {
