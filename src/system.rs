@@ -6,6 +6,8 @@ use imgui::FontSource;
 use imgui::Ui;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
+use serde::Deserialize;
+use serde::Serialize;
 use specs::storage::DenseVecStorage;
 use specs::Builder;
 use specs::Component;
@@ -50,12 +52,13 @@ pub trait Extension: App {
     fn extend_app_world(&mut self, app_world: &World, ui: &imgui::Ui);
 }
 
-#[derive(Clone, Default, Debug, Component)]
+#[derive(Clone, Default, Debug, Component, Serialize, Deserialize)]
 #[storage(DenseVecStorage)]
 pub struct Attribute {
     id: u32,
     name: String,
     value: Value,
+    #[serde(skip)]
     editing: Option<(String, Value)>,
 }
 
@@ -145,28 +148,50 @@ impl App for Attribute {
                 ui.checkbox(label, bool);
             }
             Value::FloatRange(f1, f2, f3) => {
-                ui.input_float3(label, &mut [*f1, *f2, *f3]).build();
+                let clone = &mut [*f1, *f2, *f3];
+                ui.input_float3(label, clone).build();
+                *f1 = clone[0];
+                *f2 = clone[1];
+                *f3 = clone[2];
             }
             Value::IntRange(i1, i2, i3) => {
-                ui.input_int3(label, &mut [*i1, *i2, *i3]).build();
+                let clone = &mut [*i1, *i2, *i3];
+                ui.input_int3(label, clone).build();
+                *i1 = clone[0];
+                *i2 = clone[1];
+                *i3 = clone[2];
             }
             Value::TextBuffer(text) => {
                 ui.input_text(label, text).build();
             }
+            Value::FloatPair(f1, f2) => {
+                let clone = &mut [*f1, *f2];
+                ui.input_float2(label, clone).build();
+                *f1 = clone[0];
+                *f2 = clone[1];
+            },
+            Value::IntPair(i1, i2) => {
+                let clone = &mut [*i1, *i2];
+                ui.input_int2(label, clone).build();
+                *i1 = clone[0];
+                *i2 = clone[1];
+            },
         };
     }
 }
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Serialize, Deserialize)]
 #[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
     Float(f32),
     Int(i32),
     Bool(bool),
+    TextBuffer(String),
+    IntPair(i32, i32),
+    FloatPair(f32, f32),
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
-    TextBuffer(String),
 }
 
 impl Default for Value {
@@ -193,6 +218,14 @@ impl Hash for Value {
             }
             Value::TextBuffer(txt) => txt.hash(state),
             Value::Empty => {}
+            Value::IntPair(i1, i2) => {
+                i1.hash(state);
+                i2.hash(state);
+            },
+            Value::FloatPair(f1, f2) => {
+                f1.to_bits().hash(state);
+                f2.to_bits().hash(state);
+            },
         };
     }
 }
