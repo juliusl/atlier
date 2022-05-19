@@ -43,13 +43,14 @@ pub trait App: Any + Sized {
     fn show_editor(&mut self, ui: &imgui::Ui);
 }
 
-/// The Extension trait allows customization of the UI implementation
-/// Requires the state to implement specs:Component
+/// Implement this trait to extend an app's systems
 pub trait Extension: App {
-    /// extension will register resources and components to the app world
+    /// configure_app_world can be implemented by an extension to
+    /// register resources and components to the app world
     fn configure_app_world(world: &mut World);
 
-    /// extension will register it's systems with the dispatcher
+    /// configure_app_systems can be implemented by an extension to
+    /// register systems that will run on the app world
     fn configure_app_systems(dispatcher: &mut DispatcherBuilder);
 
     /// extend_app_world get's called inside the event loop
@@ -188,6 +189,9 @@ impl App for Attribute {
                 *i1 = clone[0];
                 *i2 = clone[1];
             },
+            Value::BinaryVector(v) => {
+                ui.label_text("vector length", format!("{}", v.len()));
+            },
         };
     }
 }
@@ -204,6 +208,7 @@ pub enum Value {
     FloatPair(f32, f32),
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
+    BinaryVector(Vec<u8>),
 }
 
 impl Default for Value {
@@ -237,6 +242,9 @@ impl Hash for Value {
             Value::FloatPair(f1, f2) => {
                 f1.to_bits().hash(state);
                 f2.to_bits().hash(state);
+            },
+            Value::BinaryVector(v) => {
+                v.hash(state);
             },
         };
     }
