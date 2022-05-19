@@ -46,13 +46,19 @@ pub trait App: Any + Sized {
 /// The Extension trait allows customization of the UI implementation
 /// Requires the state to implement specs:Component
 pub trait Extension: App {
+    /// extension will register resources and components to the app world
+    fn configure_app_world(world: &mut World);
+
+    /// extension will register it's systems with the dispatcher
+    fn configure_app_systems(dispatcher: &mut DispatcherBuilder);
+
     /// extend_app_world get's called inside the event loop
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
     fn extend_app_world(&mut self, app_world: &World, ui: &imgui::Ui);
 }
 
-#[derive(Clone, Default, Debug, Component, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
 #[storage(DenseVecStorage)]
 pub struct Attribute {
     id: u32,
