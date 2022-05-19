@@ -16,6 +16,7 @@ use specs::System;
 use specs::World;
 use specs::WorldExt;
 use std::any::Any;
+use std::fs;
 use std::hash::Hash;
 use window::Hardware;
 use window::WindowContext;
@@ -71,7 +72,12 @@ pub struct Attribute {
 
 impl Attribute {
     pub fn new(id: u32, name: String, value: Value) -> Attribute {
-        Attribute { id, name, value, editing: None }
+        Attribute {
+            id,
+            name,
+            value,
+            editing: None,
+        }
     }
 
     /// helper function to show an editor for the internal state of the attribute
@@ -136,7 +142,7 @@ impl App for Attribute {
     fn show_editor(&mut self, ui: &imgui::Ui) {
         let label = format!("{} {:#4x}", self.name, self.id);
 
-        let editing= if let Some((name, e)) = &mut self.editing {
+        let editing = if let Some((name, e)) = &mut self.editing {
             let name_label = format!("name of {}", label);
             ui.set_next_item_width(200.0);
             ui.input_text(name_label, name).build();
@@ -182,19 +188,41 @@ impl App for Attribute {
                 ui.input_float2(label, clone).build();
                 *f1 = clone[0];
                 *f2 = clone[1];
-            },
+            }
             Value::IntPair(i1, i2) => {
                 let clone = &mut [*i1, *i2];
                 ui.input_int2(label, clone).build();
                 *i1 = clone[0];
                 *i2 = clone[1];
-            },
+            }
             Value::BinaryVector(v) => {
                 ui.label_text("vector length", format!("{}", v.len()));
-                if let Some(content) = String::from_utf8(v.to_vec()).ok() {
-                    ui.text_wrapped(content);  
+
+                if self.name.starts_with("file::") {
+                    if let Some(mut content) = String::from_utf8(v.to_vec()).ok() {
+                        ui.input_text_multiline(
+                            format!("content of {}", self.name),
+                            &mut content,
+                            [800.0, 200.0],
+                        )
+                        .read_only(true)
+                        .build();
+                    }
+
+                    if ui.button(format!("reload {}", label)) {
+                        let name = self.name.to_owned();
+                        let filename = &name[6..];
+                        match fs::read_to_string(filename) {
+                            Ok(string) => {
+                                *v = string.as_bytes().to_vec();
+                            }
+                            Err(err) => {
+                                eprintln!("Could not load file '{}', for attribute labeled '{}', entity {}. Error: {}", &filename, label, self.id, err);
+                            }
+                        }
+                    }
                 }
-            },
+            }
         };
     }
 }
@@ -241,14 +269,14 @@ impl Hash for Value {
             Value::IntPair(i1, i2) => {
                 i1.hash(state);
                 i2.hash(state);
-            },
+            }
             Value::FloatPair(f1, f2) => {
                 f1.to_bits().hash(state);
                 f2.to_bits().hash(state);
-            },
+            }
             Value::BinaryVector(v) => {
                 v.hash(state);
-            },
+            }
         };
     }
 }
