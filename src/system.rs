@@ -191,6 +191,9 @@ impl App for Attribute {
             },
             Value::BinaryVector(v) => {
                 ui.label_text("vector length", format!("{}", v.len()));
+                if let Some(content) = String::from_utf8(v.to_vec()).ok() {
+                    ui.text_wrapped(content);  
+                }
             },
         };
     }
