@@ -16,8 +16,11 @@ use specs::System;
 use specs::World;
 use specs::WorldExt;
 use std::any::Any;
+use std::collections::hash_map::DefaultHasher;
+use std::fmt::Display;
 use std::fs;
 use std::hash::Hash;
+use std::hash::Hasher;
 use window::Hardware;
 use window::WindowContext;
 use winit::event_loop::ControlFlow;
@@ -68,6 +71,20 @@ pub struct Attribute {
     value: Value,
     #[serde(skip)]
     editing: Option<(String, Value)>,
+}
+
+impl Display for Attribute {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#5x}::", self.id)?;
+        write!(f, "{}::", self.name)?;
+        write!(f, "{}", self.value)?;
+
+        if let Some(_) = self.editing {
+            write!(f, "editing")?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Attribute {
@@ -146,7 +163,9 @@ impl App for Attribute {
             let name_label = format!("name of {}", label);
             ui.set_next_item_width(200.0);
             ui.input_text(name_label, name).build();
-            format!("initial value of {} {:#4x}", self.name, self.id);
+            if let Value::Reference(r) = self.value.to_ref() {
+                ui.text(format!("reference: {:#5x}", r));
+            }
             e
         } else {
             &mut self.value
@@ -155,7 +174,7 @@ impl App for Attribute {
         ui.set_next_item_width(200.0);
         match editing {
             Value::Empty => {
-                ui.label_text(label, "Empty Attribute");
+                ui.text(label);
             }
             Value::Float(float) => {
                 ui.input_float(label, float).build();
@@ -223,6 +242,9 @@ impl App for Attribute {
                     }
                 }
             }
+            Value::Reference(r) => {
+                ui.text(format!("reference: {:#5x}", r));
+            },
         };
     }
 }
@@ -231,6 +253,7 @@ impl App for Attribute {
 #[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
+    Reference(u64),
     Float(f32),
     Int(i32),
     Bool(bool),
@@ -240,6 +263,40 @@ pub enum Value {
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     BinaryVector(Vec<u8>),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Empty|
+            Value::Float(_)|
+            Value::Int(_)|
+            Value::Bool(_)|
+            Value::TextBuffer(_)|
+            Value::IntPair(_, _)|
+            Value::FloatPair(_, _) |
+            Value::FloatRange(_, _, _)|
+            Value::IntRange(_, _, _) => {
+                write!(f, "{:?}", self)?;
+            },
+            Value::BinaryVector(vec) => {
+                write!(f, "{}", base64::encode(vec))?;
+            }
+            Value::Reference(_) => return write!(f, "{:?}", self),
+        }
+
+        let r = self.to_ref();
+        write!(f, "::{:?}", r)
+    }
+}
+
+impl Value {
+    pub fn to_ref(&self) -> Value {
+        let state = &mut DefaultHasher::default();
+        self.hash(state);
+
+        Value::Reference(state.finish())
+    }
 }
 
 impl Default for Value {
@@ -277,6 +334,7 @@ impl Hash for Value {
             Value::BinaryVector(v) => {
                 v.hash(state);
             }
+            Value::Reference(r) => r.hash(state)
         };
     }
 }

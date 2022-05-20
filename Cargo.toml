@@ -14,3 +14,4 @@ imgui = { version = "0.8.0", features = [ "tables-api" ] }
 imgui-winit-support = "0.8.0"
 imgui-wgpu = "0.18.0"
 serde = "1.0.137"
+base64 = "0.13.0"
