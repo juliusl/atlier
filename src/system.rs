@@ -88,10 +88,12 @@ impl Display for Attribute {
 }
 
 impl Attribute {
-    pub fn new(id: u32, name: String, value: Value) -> Attribute {
+    pub fn new(id: u32, name: impl AsRef<str>, value: Value) -> Attribute {
         Attribute {
             id,
-            name,
+            name: {
+                name.as_ref().to_string()
+            },
             value,
             editing: None,
         }
