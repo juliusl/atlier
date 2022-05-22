@@ -73,6 +73,39 @@ pub struct Attribute {
     editing: Option<(String, Value)>,
 }
 
+impl Ord for Attribute {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.id, &self.name).cmp(&(other.id, &other.name))
+    }
+}
+
+impl Eq for Attribute {
+}
+
+impl PartialEq for Attribute {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.name == other.name && self.value == other.value && self.editing == other.editing
+    }
+}
+
+impl PartialOrd for Attribute {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.id.partial_cmp(&other.id) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.name.partial_cmp(&other.name) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.value.partial_cmp(&other.value) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.editing.partial_cmp(&other.editing)
+    }
+}
+
 impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#5x}::", self.id)?;
@@ -251,7 +284,7 @@ impl App for Attribute {
     }
 }
 
-#[derive(Debug, Clone, Component, Serialize, Deserialize)]
+#[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
