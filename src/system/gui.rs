@@ -145,6 +145,7 @@ where
 
                     let ui: Ui = self.imgui.frame();
                     (self.ext_app)(&self.app_world, &ui);
+                    self.app_world.maintain();
 
                     // This is where we actually render the app's ui
                     // whatever state the app is in at this point is what the ui will see
