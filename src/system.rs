@@ -280,6 +280,9 @@ impl App for Attribute {
             Value::Reference(r) => {
                 ui.text(format!("reference: {:#5x}", r));
             },
+            Value::Symbol(symbol) => {
+                ui.label_text("symbol", symbol);
+            },
         };
     }
 }
@@ -288,6 +291,7 @@ impl App for Attribute {
 #[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
+    Symbol(String),
     Reference(u64),
     Float(f32),
     Int(i32),
@@ -304,6 +308,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Empty|
+            Value::Symbol(_)|
             Value::Float(_)|
             Value::Int(_)|
             Value::Bool(_)|
@@ -369,7 +374,8 @@ impl Hash for Value {
             Value::BinaryVector(v) => {
                 v.hash(state);
             }
-            Value::Reference(r) => r.hash(state)
+            Value::Reference(r) => r.hash(state),
+            Value::Symbol(r) => r.hash(state),
         };
     }
 }
