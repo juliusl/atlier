@@ -16,6 +16,7 @@ use specs::System;
 use specs::World;
 use specs::WorldExt;
 use std::any::Any;
+use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::fs;
@@ -209,7 +210,7 @@ impl App for Attribute {
         ui.set_next_item_width(200.0);
         match editing {
             Value::Empty => {
-                ui.text(label);
+                ui.label_text(label, "empty");
             }
             Value::Float(float) => {
                 ui.input_float(label, float).build();
@@ -278,10 +279,10 @@ impl App for Attribute {
                 }
             }
             Value::Reference(r) => {
-                ui.text(format!("reference: {:#5x}", r));
+                ui.label_text(label, format!("{}", r));
             },
             Value::Symbol(symbol) => {
-                ui.label_text("symbol", symbol);
+                ui.label_text(label, symbol);
             },
         };
     }
@@ -302,6 +303,20 @@ pub enum Value {
     FloatRange(f32, f32, f32),
     IntRange(i32, i32, i32),
     BinaryVector(Vec<u8>),
+}
+
+impl Eq for Value {
+    
+}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if let Some(ordering) = self.partial_cmp(other) {
+            ordering
+        } else {
+            Ordering::Less
+        }
+    }
 }
 
 impl Display for Value {
