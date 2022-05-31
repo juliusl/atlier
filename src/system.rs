@@ -276,6 +276,19 @@ impl App for Attribute {
                             }
                         }
                     }
+
+                    if ui.button(format!("write to disk {}", label)) {
+                        let name = self.name.to_owned();
+                        let filename = &name[6..];
+                        match fs::write(filename, v) {
+                            Ok(_) => {
+                                println!("Saved to {}", filename);
+                            }
+                            Err(err) => {
+                                eprintln!("Could not load file '{}', for attribute labeled '{}', entity {}. Error: {}", &filename, label, self.id, err);
+                            }
+                        }
+                    }
                 }
             }
             Value::Reference(r) => {
