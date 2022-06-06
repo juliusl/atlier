@@ -292,7 +292,7 @@ impl App for Attribute {
                 }
             }
             Value::Reference(r) => {
-                ui.label_text(label, format!("{}", r));
+                ui.label_text(label, format!("{:#5x}", r));
             },
             Value::Symbol(symbol) => {
                 ui.label_text(label, symbol);
