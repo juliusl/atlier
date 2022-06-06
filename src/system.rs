@@ -76,7 +76,7 @@ pub struct Attribute {
 
 impl Ord for Attribute {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.id, &self.name).cmp(&(other.id, &other.name))
+        (self.id, &self.name, &self.value, &self.editing).cmp(&(other.id, &other.name, &other.value, &self.editing))
     }
 }
 
@@ -85,25 +85,16 @@ impl Eq for Attribute {
 
 impl PartialEq for Attribute {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.name == other.name && self.value == other.value && self.editing == other.editing
+        self.id == other.id && 
+        self.name == other.name && 
+        self.value == other.value && 
+        self.editing == other.editing
     }
 }
 
 impl PartialOrd for Attribute {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.id.partial_cmp(&other.id) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        match self.name.partial_cmp(&other.name) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        match self.value.partial_cmp(&other.value) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        self.editing.partial_cmp(&other.editing)
+        (self.id, &self.name, &self.value, &self.editing).partial_cmp(&(other.id, &other.name, &other.value, &self.editing))
     }
 }
 
