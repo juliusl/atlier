@@ -71,12 +71,12 @@ pub struct Attribute {
     name: String,
     value: Value,
     #[serde(skip)]
-    editing: Option<(String, Value)>,
+    transient: Option<(String, Value)>,
 }
 
 impl Ord for Attribute {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.id, &self.name, &self.value, &self.editing).cmp(&(other.id, &other.name, &other.value, &self.editing))
+        (self.id, &self.name, &self.value, &self.transient).cmp(&(other.id, &other.name, &other.value, &self.transient))
     }
 }
 
@@ -88,13 +88,13 @@ impl PartialEq for Attribute {
         self.id == other.id && 
         self.name == other.name && 
         self.value == other.value && 
-        self.editing == other.editing
+        self.transient == other.transient
     }
 }
 
 impl PartialOrd for Attribute {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        (self.id, &self.name, &self.value, &self.editing).partial_cmp(&(other.id, &other.name, &other.value, &self.editing))
+        (self.id, &self.name, &self.value, &self.transient).partial_cmp(&(other.id, &other.name, &other.value, &self.transient))
     }
 }
 
@@ -104,11 +104,17 @@ impl Display for Attribute {
         write!(f, "{}::", self.name)?;
         write!(f, "{}", self.value)?;
 
-        if let Some(_) = self.editing {
+        if let Some(_) = self.transient {
             write!(f, "editing")?;
         }
 
         Ok(())
+    }
+}
+
+impl Into<(String, Value)> for &mut Attribute {
+    fn into(self) -> (String, Value) {
+        (self.name().to_string(), self.value().clone())
     }
 }
 
@@ -120,40 +126,38 @@ impl Attribute {
                 name.as_ref().to_string()
             },
             value,
-            editing: None,
+            transient: None,
         }
     }
 
-    /// helper function to show an editor for the internal state of the attribute
-    pub fn edit(&mut self, ui: &Ui) {
-        if let Some(_) = self.editing {
-            self.show_editor(ui);
+    /// Returns `true` when this attribute is in a `stable` state.
+    /// A `stable` state means that there are no pending changes focused on this instance of the `attribute`.
+    pub fn is_stable(&self) -> bool {
+        self.transient.is_none()
+    }
 
-            if ui.button(format!("save changes [{} {}]", self.name(), self.id)) {
-                if let Some((name, value)) = &self.editing {
-                    self.name = name.clone();
-                    self.value = value.clone();
-                    self.editing = None;
-                }
-            }
-
-            ui.same_line();
-            if ui.button(format!("reset changes [{} {}]", self.name(), self.id)) {
-                if let Some((name, value)) = &mut self.editing {
-                    *value = self.value.clone();
-                    *name = self.name.clone();
-                }
-            }
-        } else {
-            self.show_editor(ui);
-            if ui.button(format!("edit [{} {}]", self.name(), self.id)) {
-                self.editing = Some((self.name.clone(), self.value.clone()));
-            }
+    pub fn commit(&mut self) {
+        if let Some((name, value)) = &self.transient {
+            self.name = name.clone();
+            self.value = value.clone();
+            self.transient = None;
         }
     }
 
-    pub fn get_value_mut(&mut self) -> &mut Value {
-        &mut self.value
+    pub fn edit_self(&mut self) {
+        let init = self.into();
+        self.edit(init);
+    }
+
+    pub fn edit(&mut self, edit: (String, Value)) {
+        self.transient = Some(edit);
+    }
+
+    pub fn reset_editing(&mut self) {
+        if let Some((name, value)) = &mut self.transient {
+            *value = self.value.clone();
+            *name = self.name.clone();
+        }
     }
 
     // sets the id/owner of this attribute
@@ -169,6 +173,11 @@ impl Attribute {
     /// read the current value of this attribute
     pub fn value(&self) -> &Value {
         &self.value
+    }
+    
+    /// write to the current value of this attribute
+    pub fn value_mut(&mut self) -> &mut Value {
+        &mut self.value
     }
 
     /// read the current id of this attribute
@@ -186,7 +195,7 @@ impl App for Attribute {
     fn show_editor(&mut self, ui: &imgui::Ui) {
         let label = format!("{} {:#4x}", self.name, self.id);
 
-        let editing = if let Some((name, e)) = &mut self.editing {
+        let editing = if let Some((name, e)) = &mut self.transient {
             let name_label = format!("name of {}", label);
             ui.set_next_item_width(200.0);
             ui.input_text(name_label, name).build();
@@ -289,6 +298,28 @@ impl App for Attribute {
                 ui.label_text(label, symbol);
             },
         };
+    }
+}
+
+impl Attribute {
+    /// helper function to show an editor for the internal state of the attribute
+    pub fn edit_ui(&mut self, ui: &Ui) {
+        if let Some(_) = self.transient {
+            self.show_editor(ui);
+            if ui.button(format!("save changes [{} {}]", self.name(), self.id)) {
+                self.commit();
+            }
+
+            ui.same_line();
+            if ui.button(format!("reset changes [{} {}]", self.name(), self.id)) {
+                self.reset_editing();
+            }
+        } else {
+            self.show_editor(ui);
+            if ui.button(format!("edit [{} {}]", self.name(), self.id)) {
+                self.transient = Some((self.name.clone(), self.value.clone()));
+            }
+        }
     }
 }
 
@@ -443,7 +474,7 @@ pub fn start_editor<A, F, Ext>(
         if let Some(event) = event.to_static() {
             if let Err(err) = w
                 .write_component()
-                .insert(gui_entity, GUIUpdate { event: event })
+                .insert(gui_entity, GUIUpdate { event })
             {
                 println!("Error: {}", err)
             }
