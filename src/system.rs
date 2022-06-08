@@ -102,7 +102,6 @@ impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#5x}::", self.id)?;
         write!(f, "{}::", self.name)?;
-        write!(f, "{}", self.value)?;
 
         if let Some(_) = self.transient {
             write!(f, "editing")?;
