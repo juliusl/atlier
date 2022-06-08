@@ -100,7 +100,7 @@ impl PartialOrd for Attribute {
 
 impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#5x}::", self.id)?;
+        write!(f, "{:#10x}::", self.id)?;
         write!(f, "{}::", self.name)?;
 
         if let Some(_) = self.transient {
