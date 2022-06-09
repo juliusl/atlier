@@ -135,6 +135,11 @@ impl Attribute {
         self.transient.is_none()
     }
 
+    /// Returns the transient part of this attribute
+    pub fn transient(&self) -> Option<&(String, Value)> {
+        self.transient.as_ref()
+    }
+
     pub fn commit(&mut self) {
         if let Some((name, value)) = &self.transient {
             self.name = name.clone();
