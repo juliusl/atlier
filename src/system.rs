@@ -67,11 +67,11 @@ pub trait Extension: App {
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
 #[storage(DenseVecStorage)]
 pub struct Attribute {
-    id: u32,
-    name: String,
-    value: Value,
+    pub id: u32,
+    pub name: String,
+    pub value: Value,
     #[serde(skip)]
-    transient: Option<(String, Value)>,
+    pub transient: Option<(String, Value)>,
 }
 
 impl Ord for Attribute {
@@ -138,6 +138,10 @@ impl Attribute {
     /// Returns the transient part of this attribute
     pub fn transient(&self) -> Option<&(String, Value)> {
         self.transient.as_ref()
+    }
+
+    pub fn take_transient(&mut self) -> Option<(String, Value)> {
+        self.transient.take()
     }
 
     pub fn commit(&mut self) {
