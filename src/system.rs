@@ -335,17 +335,17 @@ impl Attribute {
 #[storage(DenseVecStorage)]
 pub enum Value {
     Empty,
-    Symbol(String),
-    Reference(u64),
-    Float(f32),
-    Int(i32),
     Bool(bool),
     TextBuffer(String),
+    Int(i32),
     IntPair(i32, i32),
+    IntRange(i32, i32, i32),
+    Float(f32),
     FloatPair(f32, f32),
     FloatRange(f32, f32, f32),
-    IntRange(i32, i32, i32),
     BinaryVector(Vec<u8>),
+    Reference(u64),
+    Symbol(String),
 }
 
 impl Eq for Value {
