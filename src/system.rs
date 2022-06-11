@@ -218,7 +218,7 @@ impl App for Attribute {
         ui.set_next_item_width(200.0);
         match editing {
             Value::Empty => {
-                ui.label_text(label, "empty");
+                ui.text("empty");
             }
             Value::Float(float) => {
                 ui.input_float(label, float).build();
