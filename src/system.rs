@@ -161,6 +161,10 @@ impl Attribute {
         self.transient = Some(edit);
     }
 
+    pub fn edit_as(&mut self, edit: Value) {
+        self.transient = Some((self.name().to_string(), edit));
+    }
+
     pub fn reset_editing(&mut self) {
         if let Some((name, value)) = &mut self.transient {
             *value = self.value.clone();
