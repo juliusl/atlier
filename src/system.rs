@@ -49,19 +49,19 @@ pub trait App: Any + Sized {
 }
 
 /// Implement this trait to extend an app's systems
-pub trait Extension {
+pub trait Extension<'a, 'ui> {
     /// configure_app_world can be implemented by an extension to
     /// register resources and components to the app world
-    fn configure_app_world(world: &mut World);
+    fn configure_app_world(world: &'a mut World);
 
     /// configure_app_systems can be implemented by an extension to
     /// register systems that will run on the app world
-    fn configure_app_systems(dispatcher: &mut DispatcherBuilder);
-
-    /// extend_app_world get's called inside the event loop
+    fn configure_app_systems(dispatcher: &'a mut DispatcherBuilder);
+ 
+    /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
-    fn extend_app_world(&mut self, app_world: &World, ui: &imgui::Ui);
+    fn on_ui(&'a mut self, app_world: &'a World, ui: &'a imgui::Ui<'ui>);
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
