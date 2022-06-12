@@ -100,7 +100,7 @@ impl PartialOrd for Attribute {
 
 impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#10x}::", self.id)?;
+        write!(f, "{:#010x}::", self.id)?;
         write!(f, "{}::", self.name)?;
         
         Ok(())
@@ -158,7 +158,11 @@ impl Attribute {
     }
 
     pub fn edit_as(&mut self, edit: Value) {
-        self.transient = Some((self.name().to_string(), edit));
+        if let Some((name, _)) = &self.transient {
+            self.transient = Some((name.to_string(), edit));
+        } else {
+            self.transient = Some((self.name().to_string(), edit));
+        }
     }
 
     pub fn reset_editing(&mut self) {
