@@ -49,7 +49,7 @@ pub trait App: Any + Sized {
 }
 
 /// Implement this trait to extend an app's systems
-pub trait Extension: App {
+pub trait Extension {
     /// configure_app_world can be implemented by an extension to
     /// register resources and components to the app world
     fn configure_app_world(world: &mut World);
