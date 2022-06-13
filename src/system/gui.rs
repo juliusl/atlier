@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use imgui::Ui;
 use specs::prelude::*;
 use specs::shred::DynamicSystemData;
 use winit::event::Event;
@@ -11,9 +10,9 @@ use super::App;
 
 pub struct GUI<A, F, Ext>
 where
-    A: App,
-    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: FnMut(&World, &Ui),
+    A: App + for<'c> System<'c>,
+    F: Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder<'_, 'static>),
+    Ext: for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -62,9 +61,9 @@ pub struct GUISystemData<'a> {
 
 impl<'a, A, F, Ext> System<'a> for GUI<A, F, Ext>
 where
-    A: 'a + App + for<'c> specs::System<'c> + Send,
-    F: Fn(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: FnMut(&World, &Ui),
+    A: App + for<'c> System<'c>,
+    F: 'static + Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: 'static + FnMut(&World, &imgui::Ui),
 {
     type SystemData = GUISystemData<'a>;
 
@@ -76,7 +75,7 @@ where
         // will get instantiated
         let mut app_world = &mut self.app_world;
         let mut app_dispatcher = DispatcherBuilder::new();
-        (self.extension)(&mut self.app, app_world, &mut app_dispatcher);
+        (self.extension.clone())(&mut self.app, app_world, &mut app_dispatcher);
         <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), app_world);
         let mut dispatcher = app_dispatcher.build();
         dispatcher.setup(&mut app_world);
@@ -143,7 +142,7 @@ where
                         .prepare_frame(self.imgui.io_mut(), &self.window)
                         .expect("Failed to prepare frame");
 
-                    let ui: Ui = self.imgui.frame();
+                    let ui = self.imgui.frame();
                     (self.ext_app)(&self.app_world, &ui);
                     self.app_world.maintain();
 

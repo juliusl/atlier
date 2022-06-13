@@ -52,12 +52,12 @@ pub trait App: Any + Sized {
 pub trait Extension<'a, 'ui> {
     /// configure_app_world can be implemented by an extension to
     /// register resources and components to the app world
-    fn configure_app_world(world: &'a mut World);
+    fn configure_app_world(world: &mut World);
 
     /// configure_app_systems can be implemented by an extension to
     /// register systems that will run on the app world
-    fn configure_app_systems(dispatcher: &'a mut DispatcherBuilder);
- 
+    fn configure_app_systems(dispatcher: &mut DispatcherBuilder);
+
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
@@ -76,25 +76,34 @@ pub struct Attribute {
 
 impl Ord for Attribute {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.id, &self.name, &self.value, &self.transient).cmp(&(other.id, &other.name, &other.value, &self.transient))
+        (self.id, &self.name, &self.value, &self.transient).cmp(&(
+            other.id,
+            &other.name,
+            &other.value,
+            &self.transient,
+        ))
     }
 }
 
-impl Eq for Attribute {
-}
+impl Eq for Attribute {}
 
 impl PartialEq for Attribute {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && 
-        self.name == other.name && 
-        self.value == other.value && 
-        self.transient == other.transient
+        self.id == other.id
+            && self.name == other.name
+            && self.value == other.value
+            && self.transient == other.transient
     }
 }
 
 impl PartialOrd for Attribute {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        (self.id, &self.name, &self.value, &self.transient).partial_cmp(&(other.id, &other.name, &other.value, &self.transient))
+        (self.id, &self.name, &self.value, &self.transient).partial_cmp(&(
+            other.id,
+            &other.name,
+            &other.value,
+            &self.transient,
+        ))
     }
 }
 
@@ -102,7 +111,7 @@ impl Display for Attribute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#010x}::", self.id)?;
         write!(f, "{}::", self.name)?;
-        
+
         Ok(())
     }
 }
@@ -117,9 +126,7 @@ impl Attribute {
     pub fn new(id: u32, name: impl AsRef<str>, value: Value) -> Attribute {
         Attribute {
             id,
-            name: {
-                name.as_ref().to_string()
-            },
+            name: { name.as_ref().to_string() },
             value,
             transient: None,
         }
@@ -186,7 +193,7 @@ impl Attribute {
     pub fn value(&self) -> &Value {
         &self.value
     }
-    
+
     /// write to the current value of this attribute
     pub fn value_mut(&mut self) -> &mut Value {
         &mut self.value
@@ -305,10 +312,10 @@ impl App for Attribute {
             }
             Value::Reference(r) => {
                 ui.label_text(label, format!("{:#5x}", r));
-            },
+            }
             Value::Symbol(symbol) => {
                 ui.label_text(label, symbol);
-            },
+            }
         };
     }
 }
@@ -352,9 +359,7 @@ pub enum Value {
     Symbol(String),
 }
 
-impl Eq for Value {
-    
-}
+impl Eq for Value {}
 
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
@@ -369,18 +374,18 @@ impl Ord for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Value::Empty|
-            Value::Symbol(_)|
-            Value::Float(_)|
-            Value::Int(_)|
-            Value::Bool(_)|
-            Value::TextBuffer(_)|
-            Value::IntPair(_, _)|
-            Value::FloatPair(_, _) |
-            Value::FloatRange(_, _, _)|
-            Value::IntRange(_, _, _) => {
+            Value::Empty
+            | Value::Symbol(_)
+            | Value::Float(_)
+            | Value::Int(_)
+            | Value::Bool(_)
+            | Value::TextBuffer(_)
+            | Value::IntPair(_, _)
+            | Value::FloatPair(_, _)
+            | Value::FloatRange(_, _, _)
+            | Value::IntRange(_, _, _) => {
                 write!(f, "{:?}", self)?;
-            },
+            }
             Value::BinaryVector(vec) => {
                 write!(f, "{}", base64::encode(vec))?;
             }
@@ -448,11 +453,11 @@ pub fn start_editor<A, F, Ext>(
     height: f64,
     app: A,
     extend: F,
-    ext_app: Ext,
+    mut ext_app: Ext,
 ) where
-    A: App + for<'a> System<'a> + Send,
-    F: 'static + Fn(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: 'static + FnMut(&World, &imgui::Ui),
+    A: App + Clone + for<'c> System<'c>,
+    F: 'static + Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: 'static + for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -460,11 +465,22 @@ pub fn start_editor<A, F, Ext>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(title, width, height, app, extend, ext_app);
+    let (event_loop, gui) = new_gui_system(
+        title,
+        width,
+        height,
+        app,
+        |app, world, dispatch_builder| {
+            extend(app, world, dispatch_builder);
+        },
+        move |w, ui| ext_app(w, ui),
+    );
 
     // Create the specs dispatcher
-    let dispatcher = DispatcherBuilder::new();
-    let mut dispatcher = dispatcher.with_thread_local(gui).build();
+    let mut dispatcher = DispatcherBuilder::new();
+    dispatcher.add_thread_local(gui);
+
+    let mut dispatcher = dispatcher.build();
     dispatcher.setup(&mut w);
 
     // Create a gui entity that we can use to communicate with the window
@@ -484,10 +500,7 @@ pub fn start_editor<A, F, Ext>(
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
         if let Some(event) = event.to_static() {
-            if let Err(err) = w
-                .write_component()
-                .insert(gui_entity, GUIUpdate { event })
-            {
+            if let Err(err) = w.write_component().insert(gui_entity, GUIUpdate { event }) {
                 println!("Error: {}", err)
             }
             dispatcher.dispatch_thread_local(&w);
@@ -515,9 +528,9 @@ pub fn new_gui_system<A, F, Ext>(
     ext_app: Ext,
 ) -> (winit::event_loop::EventLoop<()>, GUI<A, F, Ext>)
 where
-    A: App + System<'static>,
-    F: FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: FnMut(&World, &imgui::Ui),
+    A: App + for<'c> System<'c>,
+    F: Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
+    Ext: for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
