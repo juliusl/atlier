@@ -7,12 +7,12 @@ use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
 use super::App;
+use super::Extension;
 
-pub struct GUI<A, F, Ext>
+pub struct GUI<A, E>
 where
     A: App + for<'c> System<'c>,
-    F: Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder<'_, 'static>),
-    Ext: for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
+    E: Extension + 'static,
 {
     pub window_title: String,
     pub instance: wgpu::Instance,
@@ -31,8 +31,7 @@ where
     pub last_frame: Option<Instant>,
     pub last_cursor: Option<imgui::MouseCursor>,
     pub app: A,
-    pub extension: F,
-    pub ext_app: Ext,
+    pub extension: E,
     pub app_world: World,
     pub app_dispatcher: Option<Dispatcher<'static, 'static>>,
 }
@@ -59,11 +58,10 @@ pub struct GUISystemData<'a> {
     update: ReadStorage<'a, GUIUpdate>,
 }
 
-impl<'a, A, F, Ext> System<'a> for GUI<A, F, Ext>
+impl<'a, A, E> System<'a> for GUI<A, E>
 where
     A: App + for<'c> System<'c>,
-    F: 'static + Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: 'static + FnMut(&World, &imgui::Ui),
+    E: Extension + 'static,
 {
     type SystemData = GUISystemData<'a>;
 
@@ -75,7 +73,10 @@ where
         // will get instantiated
         let mut app_world = &mut self.app_world;
         let mut app_dispatcher = DispatcherBuilder::new();
-        (self.extension.clone())(&mut self.app, app_world, &mut app_dispatcher);
+
+        E::configure_app_world(&mut app_world);
+        E::configure_app_systems(&mut app_dispatcher);
+
         <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), app_world);
         let mut dispatcher = app_dispatcher.build();
         dispatcher.setup(&mut app_world);
@@ -143,7 +144,7 @@ where
                         .expect("Failed to prepare frame");
 
                     let ui = self.imgui.frame();
-                    (self.ext_app)(&self.app_world, &ui);
+                    self.extension.on_ui(&self.app_world, &ui);
                     self.app_world.maintain();
 
                     // This is where we actually render the app's ui

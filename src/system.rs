@@ -49,7 +49,7 @@ pub trait App: Any + Sized {
 }
 
 /// Implement this trait to extend an app's systems
-pub trait Extension<'a, 'ui> {
+pub trait Extension {
     /// configure_app_world can be implemented by an extension to
     /// register resources and components to the app world
     fn configure_app_world(world: &mut World);
@@ -61,7 +61,7 @@ pub trait Extension<'a, 'ui> {
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
-    fn on_ui(&'a mut self, app_world: &'a World, ui: &'a imgui::Ui<'ui>);
+    fn on_ui(&mut self, app_world: &World, ui: &imgui::Ui<'_>);
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
@@ -447,17 +447,15 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor<A, F, Ext>(
+pub fn start_editor_from<A, E>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    extend: F,
-    mut ext_app: Ext,
+    extension: E
 ) where
     A: App + Clone + for<'c> System<'c>,
-    F: 'static + Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: 'static + for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
+    E: Extension + 'static
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -470,10 +468,7 @@ pub fn start_editor<A, F, Ext>(
         width,
         height,
         app,
-        |app, world, dispatch_builder| {
-            extend(app, world, dispatch_builder);
-        },
-        move |w, ui| ext_app(w, ui),
+        extension
     );
 
     // Create the specs dispatcher
@@ -519,18 +514,17 @@ pub fn start_editor<A, F, Ext>(
     });
 }
 
-pub fn new_gui_system<A, F, Ext>(
+
+pub fn new_gui_system<A, E>(
     title: &str,
     width: f64,
     height: f64,
     app: A,
-    extension: F,
-    ext_app: Ext,
-) -> (winit::event_loop::EventLoop<()>, GUI<A, F, Ext>)
+    extension: E,
+) -> (winit::event_loop::EventLoop<()>, GUI<A, E>)
 where
     A: App + for<'c> System<'c>,
-    F: Clone + FnOnce(&mut A, &mut World, &mut DispatcherBuilder),
-    Ext: for<'a, 'ui> FnMut(&World, &'a imgui::Ui<'ui>),
+    E: Extension + 'static,
 {
     let window_context = window::WindowContext::new(title, width, height);
     let setup = move || {
@@ -644,7 +638,6 @@ where
                 last_cursor: None,
                 app,
                 extension,
-                ext_app,
                 app_world: World::new(),
                 app_dispatcher: None,
             };
