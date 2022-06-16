@@ -345,8 +345,40 @@ impl Attribute {
     pub fn edit_value(&mut self, ui: &Ui) {
         let label = format!("{} {:#4x}", self.name, self.id);
 
-        ui.set_next_item_width(200.0);
         match self.value_mut() {
+            Value::Symbol(_) => {
+                if let Some((_, value)) = &mut self.transient {
+                    value.edit_ui(label, ui);
+                }
+            },
+            value => {
+                value.edit_ui(label, ui);
+            }
+        };
+    }
+}
+
+#[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
+#[storage(DenseVecStorage)]
+pub enum Value {
+    Empty,
+    Bool(bool),
+    TextBuffer(String),
+    Int(i32),
+    IntPair(i32, i32),
+    IntRange(i32, i32, i32),
+    Float(f32),
+    FloatPair(f32, f32),
+    FloatRange(f32, f32, f32),
+    BinaryVector(Vec<u8>),
+    Reference(u64),
+    Symbol(String),
+}
+
+impl Value {
+    pub fn edit_ui(&mut self, label: impl AsRef<str>, ui: &imgui::Ui) {
+        ui.set_next_item_width(200.0);
+        match self {
             Value::Empty => {
                 ui.text("empty");
             }
@@ -395,27 +427,10 @@ impl Attribute {
                 ui.label_text(label, format!("{:#5x}", r));
             }
             Value::Symbol(symbol) => {
-                ui.label_text(label, symbol);
+                ui.text(symbol);
             }
         };
     }
-}
-
-#[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
-#[storage(DenseVecStorage)]
-pub enum Value {
-    Empty,
-    Bool(bool),
-    TextBuffer(String),
-    Int(i32),
-    IntPair(i32, i32),
-    IntRange(i32, i32, i32),
-    Float(f32),
-    FloatPair(f32, f32),
-    FloatRange(f32, f32, f32),
-    BinaryVector(Vec<u8>),
-    Reference(u64),
-    Symbol(String),
 }
 
 impl Eq for Value {}
