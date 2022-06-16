@@ -61,7 +61,7 @@ pub trait Extension {
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
-    fn on_ui(&mut self, app_world: &World, ui: &imgui::Ui<'_>);
+    fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>);
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
@@ -340,6 +340,65 @@ impl Attribute {
             }
         }
     }
+
+    /// helper function to show an editor for the internal state of the attribute
+    pub fn edit_value(&mut self, ui: &Ui) {
+        let label = format!("{} {:#4x}", self.name, self.id);
+
+        ui.set_next_item_width(200.0);
+        match self.value_mut() {
+            Value::Empty => {
+                ui.text("empty");
+            }
+            Value::Float(float) => {
+                ui.input_float(label, float).build();
+            }
+            Value::Int(int) => {
+                ui.input_int(label, int).build();
+            }
+            Value::Bool(bool) => {
+                ui.checkbox(label, bool);
+            }
+            Value::FloatRange(f1, f2, f3) => {
+                let clone = &mut [*f1, *f2, *f3];
+                ui.input_float3(label, clone).build();
+                *f1 = clone[0];
+                *f2 = clone[1];
+                *f3 = clone[2];
+            }
+            Value::IntRange(i1, i2, i3) => {
+                let clone = &mut [*i1, *i2, *i3];
+                ui.input_int3(label, clone).build();
+                *i1 = clone[0];
+                *i2 = clone[1];
+                *i3 = clone[2];
+            }
+            Value::TextBuffer(text) => {
+                ui.input_text(label, text).build();
+            }
+            Value::FloatPair(f1, f2) => {
+                let clone = &mut [*f1, *f2];
+                ui.input_float2(label, clone).build();
+                *f1 = clone[0];
+                *f2 = clone[1];
+            }
+            Value::IntPair(i1, i2) => {
+                let clone = &mut [*i1, *i2];
+                ui.input_int2(label, clone).build();
+                *i1 = clone[0];
+                *i2 = clone[1];
+            }
+            Value::BinaryVector(v) => {
+                ui.label_text("vector length", format!("{}", v.len()));
+            }
+            Value::Reference(r) => {
+                ui.label_text(label, format!("{:#5x}", r));
+            }
+            Value::Symbol(symbol) => {
+                ui.label_text(label, symbol);
+            }
+        };
+    }
 }
 
 #[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
@@ -447,15 +506,10 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor_from<A, E>(
-    title: &str,
-    width: f64,
-    height: f64,
-    app: A,
-    extension: E
-) where
+pub fn start_editor_from<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
+where
     A: App + Clone + for<'c> System<'c>,
-    E: Extension + 'static
+    E: Extension + 'static,
 {
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
@@ -463,13 +517,7 @@ pub fn start_editor_from<A, E>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(
-        title,
-        width,
-        height,
-        app,
-        extension
-    );
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extension);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new();
@@ -513,7 +561,6 @@ pub fn start_editor_from<A, E>(
         }
     });
 }
-
 
 pub fn new_gui_system<A, E>(
     title: &str,
