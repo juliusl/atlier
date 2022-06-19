@@ -380,7 +380,7 @@ impl Value {
         ui.set_next_item_width(200.0);
         match self {
             Value::Empty => {
-                ui.text("empty");
+                ui.label_text(label, "empty");
             }
             Value::Float(float) => {
                 ui.input_float(label, float).build();
