@@ -342,17 +342,21 @@ impl Attribute {
     }
 
     /// helper function to show an editor for the internal state of the attribute
-    pub fn edit_value(&mut self, ui: &Ui) {
-        let label = format!("{} {:#4x}", self.name, self.id);
+    pub fn edit_value(&mut self, with_label: impl AsRef<str>, ui: &Ui) {
+        let mut input_label = format!("{} {:#4x}", self.name, self.id);
+
+        if !with_label.as_ref().is_empty() {
+            input_label = with_label.as_ref().to_string();
+        }
 
         match self.value_mut() {
             Value::Symbol(_) => {
                 if let Some((_, value)) = &mut self.transient {
-                    value.edit_ui(label, ui);
+                    value.edit_ui(input_label, ui);
                 }
             },
             value => {
-                value.edit_ui(label, ui);
+                value.edit_ui(input_label, ui);
             }
         };
     }
