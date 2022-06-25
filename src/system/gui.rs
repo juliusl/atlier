@@ -93,6 +93,8 @@ where
         if let Some(app_dispatcher) = &mut self.app_dispatcher {
             app_dispatcher.dispatch(&self.app_world);
 
+            self.extension.on_run(&self.app_world);
+
             // main app will always run last because it needs to be on the main thread
             self.app.run_now(&self.app_world);
             self.app_world.maintain();
@@ -103,7 +105,7 @@ where
             control_state.control_flow = Some(ControlFlow::Poll);
 
             if let Event::WindowEvent {  event: window_event, .. } = event {
-                self.extension.on_event(&self.app_world, window_event);
+                self.extension.on_window_event(&self.app_world, window_event);
             }
 
             match event {

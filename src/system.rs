@@ -64,8 +64,12 @@ pub trait Extension {
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
     fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>);
 
-    /// on_event gets called on every window event
-    fn on_event(&'_ mut self, app_world: &World, event: &'_ WindowEvent<'_>);
+    /// on_window_event gets called on every window event
+    fn on_window_event(&'_ mut self, app_world: &World, event: &'_ WindowEvent<'_>);
+
+    /// on_run is called on every iteration of run
+    /// called before app.run_now(), and before any events are handled by the event_loop
+    fn on_run(&'_ mut self, app_world: &World);
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
