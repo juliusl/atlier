@@ -15,7 +15,6 @@ use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
-use winit::event::WindowEvent;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
@@ -27,6 +26,7 @@ use window::Hardware;
 use window::WindowContext;
 use winit::event_loop::ControlFlow;
 
+pub use winit::event::WindowEvent;
 pub use gui::ControlState;
 pub use gui::GUIUpdate;
 pub use gui::GUI;
