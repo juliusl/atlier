@@ -84,7 +84,6 @@ where
     }
 
     fn run(&mut self, data: Self::SystemData) {
-
         // Since we're using a nested world, we need to manually call run_now on the main app
         // since the main app needs the main thread to render it's ui
         // however they systems added in the extension method will continue running independently
@@ -102,6 +101,10 @@ where
         let mut control_state = data.control_state;
         for GUIUpdate { event } in data.update.join() {
             control_state.control_flow = Some(ControlFlow::Poll);
+
+            if let Event::WindowEvent {  event: window_event, .. } = event {
+                self.extension.on_event(&self.app_world, window_event);
+            }
 
             match event {
                 Event::WindowEvent {

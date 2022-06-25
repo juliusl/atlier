@@ -15,6 +15,7 @@ use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
+use winit::event::WindowEvent;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
@@ -62,6 +63,9 @@ pub trait Extension {
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
     fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>);
+
+    /// on_event gets called on every window event
+    fn on_event(&'_ mut self, app_world: &World, event: &'_ WindowEvent<'_>);
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
@@ -555,10 +559,6 @@ where
 
     // Starts the event loop
     event_loop.run(move |event, _, control_flow| {
-        // Note: We technically only need the thread local systems to be called because we don't
-        // have any par able systems. However if we do add any this next line will need to be uncommented
-        //dispatcher.dispatch_seq(&w);
-
         // THREAD LOCAL
         // Dispatch the next event to the gui_entity that is rendering windows
         if let Some(event) = event.to_static() {
@@ -624,7 +624,6 @@ where
                 imgui_winit_support::HiDpiMode::Default,
             );
             setup_imgui.set_ini_filename(None);
-
             setup_imgui.io_mut().font_global_scale = (1.0 / hidpi_scale_factor) as f32;
 
             if let Some(cascadia_code) = cascadia_code() {
