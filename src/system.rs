@@ -45,8 +45,11 @@ pub trait App: Any + Sized {
         &[1920.0, 1080.0]
     }
 
-    /// Shows the editor
-    fn show_editor(&mut self, ui: &imgui::Ui);
+    /// Show ui that can edit self
+    fn edit_ui(&mut self, ui: &imgui::Ui);
+
+    // Show ui that can display self
+    fn display_ui(&self, ui: &imgui::Ui);
 }
 
 /// Implement this trait to extend an app's systems
@@ -219,7 +222,10 @@ impl App for Attribute {
         "Attribute"
     }
 
-    fn show_editor(&mut self, ui: &imgui::Ui) {
+    fn display_ui(&self, _: &imgui::Ui) {
+    }
+
+    fn edit_ui(&mut self, ui: &imgui::Ui) {
         let label = format!("{} {:#4x}", self.name, self.id);
 
         let editing = if let Some((name, e)) = &mut self.transient {
@@ -330,9 +336,9 @@ impl App for Attribute {
 
 impl Attribute {
     /// helper function to show an editor for the internal state of the attribute
-    pub fn edit_ui(&mut self, ui: &Ui) {
+    pub fn edit_attr(&mut self, ui: &Ui) {
         if let Some(_) = self.transient {
-            self.show_editor(ui);
+            self.edit_ui(ui);
             if ui.button(format!("save changes [{} {}]", self.name(), self.id)) {
                 self.commit();
             }
@@ -342,7 +348,7 @@ impl Attribute {
                 self.reset_editing();
             }
         } else {
-            self.show_editor(ui);
+            self.edit_ui(ui);
             if ui.button(format!("edit [{} {}]", self.name(), self.id)) {
                 self.transient = Some((self.name.clone(), self.value.clone()));
             }

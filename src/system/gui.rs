@@ -1,5 +1,4 @@
 use std::time::Instant;
-
 use specs::prelude::*;
 use specs::shred::DynamicSystemData;
 use winit::event::Event;
@@ -158,7 +157,8 @@ where
                     // Also, important to note, the ui at this point can make any changes independent of any extensions.
                     // This means if the ui is expecting extensions to make changes, it needs to ensure runtime state knows how to
                     // reconcile this. 
-                    self.app.show_editor(&ui);
+                    self.app.edit_ui(&ui);
+                    let _ = &self.app.display_ui(&ui);
 
                     let mut encoder: wgpu::CommandEncoder = self
                         .device
