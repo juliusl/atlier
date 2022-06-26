@@ -36,7 +36,10 @@ pub use font::monaco;
 pub use font::segoe_ui;
 
 /// The App trait allows an "editor" to be shown
-pub trait App: Any + Sized {
+pub trait App 
+    where
+        Self: Any + Send + Sync
+{
     /// name of this app
     fn name() -> &'static str;
 
