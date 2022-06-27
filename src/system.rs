@@ -76,6 +76,9 @@ pub trait Extension {
     /// on_run is called on every iteration of run
     /// called before app.run_now(), and before any events are handled by the event_loop
     fn on_run(&'_ mut self, app_world: &World);
+
+    // on_update is called to update world state
+    fn on_update(&'_ self, _app_world: &mut World) {}
 }
 
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]

@@ -93,6 +93,7 @@ where
             app_dispatcher.dispatch(&self.app_world);
 
             self.extension.on_run(&self.app_world);
+            self.extension.on_update(&mut self.app_world);
 
             // main app will always run last because it needs to be on the main thread
             self.app.run_now(&self.app_world);
