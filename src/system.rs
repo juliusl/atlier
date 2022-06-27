@@ -401,7 +401,6 @@ pub enum Value {
 
 impl Value {
     pub fn edit_ui(&mut self, label: impl AsRef<str>, ui: &imgui::Ui) {
-        ui.set_next_item_width(200.0);
         match self {
             Value::Empty => {
                 ui.label_text(label, "empty");
