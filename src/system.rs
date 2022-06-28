@@ -22,23 +22,24 @@ use std::fmt::Display;
 use std::fs;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::str::from_utf8;
 use window::Hardware;
 use window::WindowContext;
 use winit::event_loop::ControlFlow;
 
-pub use winit::event::WindowEvent;
 pub use gui::ControlState;
 pub use gui::GUIUpdate;
 pub use gui::GUI;
+pub use winit::event::WindowEvent;
 
 pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
 /// The App trait allows an "editor" to be shown
-pub trait App 
-    where
-        Self: Any + Send + Sync
+pub trait App
+where
+    Self: Any + Send + Sync,
 {
     /// name of this app
     fn name() -> &'static str;
@@ -228,8 +229,7 @@ impl App for Attribute {
         "Attribute"
     }
 
-    fn display_ui(&self, _: &imgui::Ui) {
-    }
+    fn display_ui(&self, _: &imgui::Ui) {}
 
     fn edit_ui(&mut self, ui: &imgui::Ui) {
         let label = format!("{} {:#4x}", self.name, self.id);
@@ -374,7 +374,7 @@ impl Attribute {
                 if let Some((_, value)) = &mut self.transient {
                     value.edit_ui(input_label, ui);
                 }
-            },
+            }
             value => {
                 value.edit_ui(input_label, ui);
             }
@@ -444,7 +444,45 @@ impl Value {
                 *i2 = clone[1];
             }
             Value::BinaryVector(v) => {
-                ui.label_text("vector length", format!("{}", v.len()));
+                ui.label_text(label, format!("{} bytes", v.len()));
+                if let Some(text) = from_utf8(v).ok().filter(|s| !s.is_empty()) {
+                    let width = text.split_once("\n")
+                        .and_then(|(l, ..)| Some(l.len() as f32 * 16.0 + 400.0))
+                        .and_then(|w| Some(w.min(1360.0)))
+                        .unwrap_or(800.0);
+
+                    if ui.is_item_hovered() {
+                        ui.tooltip(|| {
+                            if !text.is_empty() {
+                                ui.text("Preview - Right+Click to pin/expand");
+                                ui.input_text_multiline(
+                                    "preview-tooltip",
+                                    &mut text.to_string(),
+                                    [width, 35.0 * 16.0],
+                                )
+                                .read_only(true)
+                                .build();
+                            }
+                        });
+                    }
+
+                    ui.popup(&text, || {
+                        if !text.is_empty() {
+                            ui.text("Preview");
+                            ui.input_text_multiline(
+                                "preview",
+                                &mut text.to_string(),
+                                [1360.0, 35.0 * 16.0],
+                            )
+                            .read_only(true)
+                            .build();
+                        }
+                    });
+
+                    if ui.is_item_clicked_with_button(imgui::MouseButton::Right) {
+                        ui.open_popup(&text);
+                    }
+                }
             }
             Value::Reference(r) => {
                 ui.label_text(label, format!("{:#5x}", r));

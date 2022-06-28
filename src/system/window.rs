@@ -43,6 +43,7 @@ impl WindowContext {
 
             window.set_maximized(true);
             window.set_resizable(true);
+            
             let surface = unsafe { instance.create_surface(&window) };
             let hidpi_factor = window.scale_factor();
             let font_size = (16.0 * hidpi_factor) as f32;
