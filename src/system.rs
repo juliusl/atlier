@@ -3,6 +3,8 @@ mod gui;
 mod window;
 
 use imgui::FontSource;
+use imgui::Key;
+use imgui::MouseButton;
 use imgui::Ui;
 use imgui_wgpu::Renderer;
 use imgui_wgpu::RendererConfig;
@@ -373,6 +375,8 @@ impl Attribute {
         match self.value_mut() {
             Value::Symbol(_) => {
                 if let Some((_, value)) = &mut self.transient {
+                    ui.text("(transient)");
+                    ui.same_line();
                     value.edit_ui(input_label, ui);
                 }
             }
@@ -452,7 +456,7 @@ impl Value {
                         .and_then(|w| Some(w.min(1360.0)))
                         .unwrap_or(800.0);
 
-                    if ui.is_item_hovered() {
+                    if ui.is_item_hovered() && (ui.is_key_down(Key::V) || ui.is_mouse_down(MouseButton::Middle)) {
                         ui.tooltip(|| {
                             if !text.is_empty() {
                                 ui.text("Preview - Right+Click to pin/expand");
@@ -465,6 +469,10 @@ impl Value {
                                 .build();
                             }
                         });
+                    }
+
+                    if ui.is_item_hovered() && !ui.is_key_down(Key::V) && !ui.is_mouse_down(MouseButton::Middle) {
+                        ui.tooltip_text("Hold+V or Middle+Mouse to peek at content");
                     }
 
                     ui.popup(&text, || {
