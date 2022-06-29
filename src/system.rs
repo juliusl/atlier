@@ -585,7 +585,7 @@ impl Hash for Value {
 
 pub fn start_editor_from<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
 where
-    A: App + Clone + for<'c> System<'c>,
+    A: App + for<'c> System<'c>,
     E: Extension + 'static,
 {
     let mut w = World::new();
