@@ -98,7 +98,7 @@ where
             self.app.run_now(&self.app_world);
             self.app_world.maintain();
             
-            self.extension.on_update(&mut self.app_world);
+            self.extension.on_maintain(&mut self.app_world);
         }
         
         let mut control_state = data.control_state;
@@ -160,7 +160,7 @@ where
                     // This means if the ui is expecting extensions to make changes, it needs to ensure runtime state knows how to
                     // reconcile this. 
                     self.app.edit_ui(&ui);
-                    let _ = &self.app.display_ui(&ui);
+                    self.app.display_ui(&ui);
 
                     let mut encoder: wgpu::CommandEncoder = self
                         .device

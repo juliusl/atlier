@@ -36,7 +36,7 @@ pub use font::cascadia_code;
 pub use font::monaco;
 pub use font::segoe_ui;
 
-/// The App trait allows an "editor" to be shown
+/// The App trait allows for mut/read-only access to component state
 pub trait App
 where
     Self: Any + Send + Sync,
@@ -56,32 +56,33 @@ where
     fn display_ui(&self, ui: &imgui::Ui);
 }
 
-/// Implement this trait to extend an app's systems
+/// Implementing this trait allows for extending the event loop runtime
 pub trait Extension {
     /// configure_app_world can be implemented by an extension to
     /// register resources and components to the app world
-    fn configure_app_world(world: &mut World);
+    fn configure_app_world(_world: &mut World) {}
 
     /// configure_app_systems can be implemented by an extension to
     /// register systems that will run on the app world
-    fn configure_app_systems(dispatcher: &mut DispatcherBuilder);
+    fn configure_app_systems(_dispatcher: &mut DispatcherBuilder) {}
 
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
-    fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>);
+    fn on_ui(&'_ mut self, _app_world: &World, _ui: &'_ imgui::Ui<'_>) {}
 
     /// on_window_event gets called on every window event
-    fn on_window_event(&'_ mut self, app_world: &World, event: &'_ WindowEvent<'_>);
+    fn on_window_event(&'_ mut self, _app_world: &World, _event: &'_ WindowEvent<'_>) {}
 
     /// on_run is called on every iteration of run
     /// called before app.run_now(), and before any events are handled by the event_loop
-    fn on_run(&'_ mut self, app_world: &World);
+    fn on_run(&'_ mut self, _app_world: &World) {}
 
-    // on_update is called to update world state
-    fn on_update(&'_ self, _app_world: &mut World) {}
+    // on_maintain is called after `.maintain()` is called on the world
+    fn on_maintain(&'_ self, _app_world: &mut World) {}
 }
 
+/// An attribute is the main "framing" resource
 #[derive(Clone, Default, Debug, Component, Serialize, Deserialize, Hash)]
 #[storage(DenseVecStorage)]
 pub struct Attribute {
