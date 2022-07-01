@@ -420,18 +420,10 @@ impl Value {
                 ui.checkbox(label, bool);
             }
             Value::FloatRange(f1, f2, f3) => {
-                let clone = &mut [*f1, *f2, *f3];
-                ui.input_float3(label, clone).build();
-                *f1 = clone[0];
-                *f2 = clone[1];
-                *f3 = clone[2];
+                imgui::Slider::new(label, *f2, *f3).build(ui, f1);
             }
             Value::IntRange(i1, i2, i3) => {
-                let clone = &mut [*i1, *i2, *i3];
-                ui.input_int3(label, clone).build();
-                *i1 = clone[0];
-                *i2 = clone[1];
-                *i3 = clone[2];
+                imgui::Slider::new(label, *i2, *i3).build(ui, i1);
             }
             Value::TextBuffer(text) => {
                 ui.input_text(label, text).build();
