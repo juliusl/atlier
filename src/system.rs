@@ -583,6 +583,7 @@ impl Hash for Value {
     }
 }
 
+/// Opens a window for some App/Extension
 pub fn open_window<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
 where
     A: App + for<'c> System<'c>,
@@ -635,7 +636,8 @@ where
     });
 }
 
-pub fn new_gui_system<A, E>(
+/// Creates a graphics/ui pipeline and window, returns the event loop and the pipeline system
+fn new_gui_system<A, E>(
     title: &str,
     width: f64,
     height: f64,
