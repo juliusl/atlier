@@ -583,7 +583,7 @@ impl Hash for Value {
     }
 }
 
-pub fn start_editor_from<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
+pub fn open_window<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
 where
     A: App + for<'c> System<'c>,
     E: Extension + 'static,
