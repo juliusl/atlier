@@ -81,7 +81,7 @@ pub trait Extension {
     fn on_run(&'_ mut self, _app_world: &World) {}
 
     // on_maintain is called after `.maintain()` is called on the world
-    fn on_maintain(&'_ self, _app_world: &mut World) {}
+    fn on_maintain(&'_ mut self, _app_world: &mut World) {}
 }
 
 /// An attribute is the main "framing" resource
