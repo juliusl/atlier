@@ -82,6 +82,17 @@ pub trait Extension {
 
     // on_maintain is called after `.maintain()` is called on the world
     fn on_maintain(&'_ mut self, _app_world: &mut World) {}
+
+    /// standalone sets up a new specs environment, with this extension
+    fn standalone<'a, 'b>() -> (World, DispatcherBuilder::<'a, 'b>) {
+        let mut world = World::new();
+        let mut dispatcher_builder = DispatcherBuilder::new();
+
+        Self::configure_app_world(&mut world);
+        Self::configure_app_systems(&mut dispatcher_builder);
+
+        (world, dispatcher_builder)
+    }
 }
 
 /// An attribute is the main "framing" resource
