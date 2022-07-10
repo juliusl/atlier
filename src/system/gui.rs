@@ -175,6 +175,7 @@ where
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
 
+                    // 282C34
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: None,
                         color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -182,9 +183,9 @@ where
                             resolve_target: None,
                             ops: wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
+                                    r: 0.157,
+                                    g: 0.173,
+                                    b: 0.204,
                                     a: 1.0,
                                 }),
                                 store: true,
