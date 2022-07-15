@@ -35,8 +35,8 @@ impl WindowContext {
         let (window, size, surface, hidpi_factor, font_size) = {
             let window = Window::new(&event_loop).unwrap();
             window.set_inner_size(LogicalSize {
-                width: width,
-                height: height,
+                 width,
+                 height,
             });
             window.set_title(&title);
             let size = window.inner_size();
