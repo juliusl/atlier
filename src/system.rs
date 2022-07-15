@@ -62,7 +62,7 @@ where
     }
 
     /// Called when a new frame is ready to be rendered
-    fn on_render<'a>(&'_ mut self, _view: &wgpu::TextureView, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
+    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
     }
 }
 
