@@ -200,7 +200,7 @@ where
                         .render(ui.render(), &self.queue, &self.device, &mut rpass)
                         .expect("Rendering failed");
 
-                    self.app.on_render(view, &self.device, &self.queue);
+                    self.app.on_render(view, &self.device, &self.queue, &mut rpass);
 
                     drop(rpass); // renders to screen on drop, will probaly be changed in wgpu 0.7 or later
 
