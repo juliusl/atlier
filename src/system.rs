@@ -58,7 +58,7 @@ where
     fn display_ui(&self, ui: &imgui::Ui);
 
     /// Called on start up
-    fn on_init(&mut self, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    fn on_init(&mut self, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
     }
 
     /// Called when a new frame is ready to be rendered

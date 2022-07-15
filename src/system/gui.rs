@@ -81,7 +81,7 @@ where
         dispatcher.setup(&mut app_world);
         self.app_dispatcher = Some(dispatcher);
 
-        self.app.on_init(&self.surface_desc, &self.adapter, &self.device, &self.queue);
+        self.app.on_init(&self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue);
     }
 
     fn run(&mut self, data: Self::SystemData) {
