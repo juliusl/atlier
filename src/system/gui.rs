@@ -80,6 +80,8 @@ where
         let mut dispatcher = app_dispatcher.build();
         dispatcher.setup(&mut app_world);
         self.app_dispatcher = Some(dispatcher);
+
+        self.app.on_init(&self.surface_desc, &self.adapter, &self.device, &self.queue);
     }
 
     fn run(&mut self, data: Self::SystemData) {
@@ -197,6 +199,8 @@ where
                     self.renderer
                         .render(ui.render(), &self.queue, &self.device, &mut rpass)
                         .expect("Rendering failed");
+
+                    self.app.on_render(view, &self.device, &self.queue);
 
                     drop(rpass); // renders to screen on drop, will probaly be changed in wgpu 0.7 or later
 

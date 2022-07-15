@@ -54,8 +54,16 @@ where
     /// Show ui that can edit self
     fn edit_ui(&mut self, ui: &imgui::Ui);
 
-    // Show ui that can display self
+    /// Show ui that can display self
     fn display_ui(&self, ui: &imgui::Ui);
+
+    /// Called on start up
+    fn on_init(&mut self, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    }
+
+    /// Called when a new frame is ready to be rendered
+    fn on_render(&mut self, _view: &wgpu::TextureView, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    }
 }
 
 /// Implementing this trait allows for extending the event loop runtime
