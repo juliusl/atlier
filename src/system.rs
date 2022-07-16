@@ -17,6 +17,8 @@ use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
+use winit::event::DeviceEvent;
+use winit::event::DeviceId;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
@@ -83,6 +85,9 @@ pub trait Extension {
 
     /// on_window_event gets called on every window event
     fn on_window_event(&'_ mut self, _app_world: &World, _event: &'_ WindowEvent<'_>) {}
+
+    /// on_device_event gets called on every device event
+    fn on_device_event(&'_ mut self, _app_world: &World, _device_id: &'_ DeviceId, _event: &'_ DeviceEvent) {}
 
     /// on_run is called on every iteration of run
     /// called before app.run_now(), and before any events are handled by the event_loop

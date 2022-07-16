@@ -112,6 +112,9 @@ where
             }
 
             match event {
+                Event::DeviceEvent { device_id, event } => {
+                    self.extension.on_device_event(&self.app_world, device_id, event);
+                },
                 Event::WindowEvent {
                     event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                     ..
