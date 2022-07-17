@@ -130,8 +130,9 @@ where
                     // Recreate the swap chain with the new size
                     self.surface_desc.width = size.width;
                     self.surface_desc.height = size.height;
-                    self.depth_texture = create_depth_texture(&self.device, &self.surface_desc, "depth_texture");
                     self.surface.configure(&self.device, &self.surface_desc);
+
+                    self.depth_texture = create_depth_texture(&self.device, &self.surface_desc, "depth_texture");
                 }
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
