@@ -196,7 +196,7 @@ where
                                 store: true,
                             },
                         })],
-                        depth_stencil_attachment: None,
+                        depth_stencil_attachment: self.app.enable_depth_stencil(&self.surface_desc, &self.device),
                     });
 
                     self.app.on_render(view, &self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue, &mut rpass);

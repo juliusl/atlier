@@ -63,6 +63,11 @@ where
     fn on_init(&mut self, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
     }
 
+    /// Enable depth stencil
+    fn enable_depth_stencil<'a>(&mut self, _config: &wgpu::SurfaceConfiguration, _device: &wgpu::Device) -> Option<wgpu::RenderPassDepthStencilAttachment<'a>> {
+        None
+    }
+
     /// Called when a new frame is ready to be rendered
     fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
     }
