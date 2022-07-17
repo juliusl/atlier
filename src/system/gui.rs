@@ -199,7 +199,7 @@ where
                         depth_stencil_attachment: None,
                     });
 
-                    self.app.on_render(view, &self.surface, &self.adapter, &self.device, &self.queue, &mut rpass);
+                    self.app.on_render(view, &self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue, &mut rpass);
 
                     self.renderer
                         .render(ui.render(), &self.queue, &self.device, &mut rpass)
