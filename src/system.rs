@@ -816,7 +816,7 @@ where
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
     
 fn create_depth_texture<'a>(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, label: &str) -> TextureView {
-    let size = wgpu::Extent3d { // 2.
+    let size = wgpu::Extent3d {
         width: config.width,
         height: config.height,
         depth_or_array_layers: 1,
@@ -828,11 +828,10 @@ fn create_depth_texture<'a>(device: &wgpu::Device, config: &wgpu::SurfaceConfigu
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: DEPTH_FORMAT,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT // 3.
-            | wgpu::TextureUsages::TEXTURE_BINDING,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
     };
     let texture = device.create_texture(&desc);
-
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
     view
 }

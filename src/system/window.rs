@@ -87,7 +87,7 @@ impl From<WindowContext> for Hardware {
         
                 let surface_descriptor = wgpu::SurfaceConfiguration {
                     usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-                    format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    format: surface.get_supported_formats(&adapter)[0],
                     width: physical_size.width,
                     height: physical_size.height,
                     present_mode: wgpu::PresentMode::Fifo,
