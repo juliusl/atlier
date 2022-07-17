@@ -20,6 +20,7 @@ where
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
     pub surface_desc: wgpu::SurfaceConfiguration,
+    pub depth_texture: wgpu::TextureView,
     pub window: winit::window::Window,
     pub physical_size: winit::dpi::PhysicalSize<u32>,
     pub platform: imgui_winit_support::WinitPlatform,
@@ -196,7 +197,20 @@ where
                                 store: true,
                             },
                         })],
-                        depth_stencil_attachment: self.app.enable_depth_stencil(&self.surface_desc, &self.device),
+                        depth_stencil_attachment: {
+                            if self.app.enable_depth_stencil() {
+                                Some(wgpu::RenderPassDepthStencilAttachment {
+                                    view: &self.depth_texture,
+                                    depth_ops: Some(wgpu::Operations {
+                                        load: wgpu::LoadOp::Clear(1.0),
+                                        store: true,
+                                    }),
+                                    stencil_ops: None,
+                                })
+                            } else {
+                                None
+                            }
+                        },
                     });
 
                     self.app.on_render(view, &self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue, &mut rpass);

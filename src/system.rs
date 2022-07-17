@@ -17,6 +17,7 @@ use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
+use wgpu::TextureView;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
 use std::any::Any;
@@ -64,8 +65,8 @@ where
     }
 
     /// Enable depth stencil
-    fn enable_depth_stencil<'a>(&mut self, _config: &wgpu::SurfaceConfiguration, _device: &wgpu::Device) -> Option<wgpu::RenderPassDepthStencilAttachment<'a>> {
-        None
+    fn enable_depth_stencil<'a>(&self) -> bool {
+        false
     }
 
     /// Called when a new frame is ready to be rendered
@@ -769,6 +770,8 @@ where
 
             let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
 
+            let depth_texture = create_depth_texture(&device, &surface_desc, "depth_texture");
+
             let gui = GUI {
                 window_title: title.to_string(),
                 imgui,
@@ -783,6 +786,7 @@ where
                 device,
                 queue,
                 surface_desc,
+                depth_texture,
                 platform,
                 last_frame: None,
                 last_cursor: None,
@@ -799,4 +803,28 @@ where
     };
 
     setup()
+}
+
+pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
+    
+fn create_depth_texture<'a>(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, label: &str) -> TextureView {
+    let size = wgpu::Extent3d { // 2.
+        width: config.width,
+        height: config.height,
+        depth_or_array_layers: 1,
+    };
+    let desc = wgpu::TextureDescriptor {
+        label: Some(label),
+        size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: DEPTH_FORMAT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT // 3.
+            | wgpu::TextureUsages::TEXTURE_BINDING,
+    };
+    let texture = device.create_texture(&desc);
+
+    let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+    view
 }
