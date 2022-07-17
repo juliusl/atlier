@@ -763,14 +763,22 @@ where
                 }),
             }]);
 
+            let depth_texture = create_depth_texture(&device, &surface_desc, "depth_texture");
+
             let renderer_config = RendererConfig {
                 texture_format: surface_desc.format,
+                depth_format: {
+                    if app.enable_depth_stencil() {
+                        Some(DEPTH_FORMAT)
+                    } else {
+                        None
+                    }
+                },
                 ..Default::default()
             };
 
             let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
 
-            let depth_texture = create_depth_texture(&device, &surface_desc, "depth_texture");
 
             let gui = GUI {
                 window_title: title.to_string(),
