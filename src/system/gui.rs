@@ -1,13 +1,13 @@
-use std::time::Instant;
 use specs::prelude::*;
 use specs::shred::DynamicSystemData;
+use std::time::Instant;
 use winit::event::Event;
 use winit::event::WindowEvent;
 use winit::event_loop::ControlFlow;
 
+use super::create_depth_texture;
 use super::App;
 use super::Extension;
-use super::create_depth_texture;
 
 pub struct GUI<A, E>
 where
@@ -83,7 +83,13 @@ where
         dispatcher.setup(&mut app_world);
         self.app_dispatcher = Some(dispatcher);
 
-        self.app.on_init(&self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue);
+        self.app.on_init(
+            &self.surface,
+            &self.surface_desc,
+            &self.adapter,
+            &self.device,
+            &self.queue,
+        );
     }
 
     fn run(&mut self, data: Self::SystemData) {
@@ -101,22 +107,28 @@ where
             // main app will always run last because it needs to be on the main thread
             self.app.run_now(&self.app_world);
             self.app_world.maintain();
-            
+
             self.extension.on_maintain(&mut self.app_world);
         }
-        
+
         let mut control_state = data.control_state;
         for GUIUpdate { event } in data.update.join() {
             control_state.control_flow = Some(ControlFlow::Poll);
 
-            if let Event::WindowEvent {  event: window_event, .. } = event {
-                self.extension.on_window_event(&self.app_world, window_event);
+            if let Event::WindowEvent {
+                event: window_event,
+                ..
+            } = event
+            {
+                self.extension
+                    .on_window_event(&self.app_world, window_event);
             }
 
             match event {
                 Event::DeviceEvent { device_id, event } => {
-                    self.extension.on_device_event(&self.app_world, device_id, event);
-                },
+                    self.extension
+                        .on_device_event(&self.app_world, device_id, event);
+                }
                 Event::WindowEvent {
                     event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                     ..
@@ -132,7 +144,8 @@ where
                     self.surface_desc.height = size.height;
                     self.surface.configure(&self.device, &self.surface_desc);
 
-                    self.depth_texture = create_depth_texture(&self.device, &self.surface_desc, "depth_texture");
+                    self.depth_texture =
+                        create_depth_texture(&self.device, &self.surface_desc, "depth_texture");
                 }
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -167,7 +180,7 @@ where
                     // Repeating this information here from above...
                     // Also, important to note, the ui at this point can make any changes independent of any extensions.
                     // This means if the ui is expecting extensions to make changes, it needs to ensure runtime state knows how to
-                    // reconcile this. 
+                    // reconcile this.
                     self.app.edit_ui(&ui);
                     self.app.display_ui(&ui);
 
@@ -184,46 +197,53 @@ where
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
 
-                    // 282C34
-                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        label: None,
-                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                            view,
-                            resolve_target: None,
-                            ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(wgpu::Color {
-                                    r: 0.1,
-                                    g: 0.2,
-                                    b: 0.3,
-                                    a: 1.0,
-                                }),
-                                store: true,
-                            },
-                        })],
-                        depth_stencil_attachment: {
-                            if self.app.enable_depth_stencil() {
-                                Some(wgpu::RenderPassDepthStencilAttachment {
-                                    view: &self.depth_texture,
-                                    depth_ops: Some(wgpu::Operations {
-                                        load: wgpu::LoadOp::Clear(1.0),
-                                        store: true,
+                    {
+                        // 282C34
+                        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                            label: None,
+                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                                view,
+                                resolve_target: None,
+                                ops: wgpu::Operations {
+                                    load: wgpu::LoadOp::Clear(wgpu::Color {
+                                        r: 0.1,
+                                        g: 0.2,
+                                        b: 0.3,
+                                        a: 1.0,
                                     }),
-                                    stencil_ops: None,
-                                })
-                            } else {
-                                None
-                            }
-                        },
-                    });
+                                    store: true,
+                                },
+                            })],
+                            depth_stencil_attachment: {
+                                if self.app.enable_depth_stencil() {
+                                    Some(wgpu::RenderPassDepthStencilAttachment {
+                                        view: &self.depth_texture,
+                                        depth_ops: Some(wgpu::Operations {
+                                            load: wgpu::LoadOp::Clear(1.0),
+                                            store: true,
+                                        }),
+                                        stencil_ops: None,
+                                    })
+                                } else {
+                                    None
+                                }
+                            },
+                        });
 
-                    self.app.on_render(view, &self.surface, &self.surface_desc, &self.adapter, &self.device, &self.queue, &mut rpass);
+                        self.app.on_render(
+                            view,
+                            &self.surface,
+                            &self.surface_desc,
+                            &self.adapter,
+                            &self.device,
+                            &self.queue,
+                            &mut rpass,
+                        );
 
-                    self.renderer
-                        .render(ui.render(), &self.queue, &self.device, &mut rpass)
-                        .expect("Rendering failed");
-
-                    drop(rpass); // renders to screen on drop, will probaly be changed in wgpu 0.7 or later
-
+                        self.renderer
+                            .render(ui.render(), &self.queue, &self.device, &mut rpass)
+                            .expect("Rendering failed");
+                    }
                     self.queue.submit(Some(encoder.finish()));
                     frame.present()
                 }
