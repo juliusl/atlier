@@ -256,6 +256,13 @@ where
 
                     self.extension.on_render(
                         view, 
+                        {
+                            if self.app.enable_depth_stencil() {
+                                Some(&self.depth_texture)
+                            } else {
+                                None
+                            }
+                        },
                         &self.surface, 
                         &self.surface_desc, 
                         &self.adapter, 

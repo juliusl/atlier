@@ -108,7 +108,7 @@ pub trait Extension {
     }
 
     /// on_render for extensions relies on the encoder/staging_belt 
-    fn on_render(&'_ mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _encoder: &mut wgpu::CommandEncoder, _staging_belt: &mut StagingBelt) {
+    fn on_render(&'_ mut self, _view: &wgpu::TextureView, _depth_view: Option<&wgpu::TextureView>, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _encoder: &mut wgpu::CommandEncoder, _staging_belt: &mut StagingBelt) {
     }
 
     /// standalone sets up a new specs environment with this extension
