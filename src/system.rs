@@ -18,6 +18,7 @@ use specs::System;
 use specs::World;
 use specs::WorldExt;
 use wgpu::TextureView;
+use wgpu::util::StagingBelt;
 use winit::event::DeviceEvent;
 use winit::event::DeviceId;
 use std::any::Any;
@@ -70,7 +71,7 @@ where
     }
 
     /// Called when a new frame is ready to be rendered
-    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
+    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _staging_belt: &mut StagingBelt, _rpass: &mut wgpu::RenderPass<'a>) {
     }
 }
 
@@ -778,7 +779,7 @@ where
             };
 
             let renderer = Renderer::new(setup_imgui, &device, &queue, renderer_config);
-
+            let staging_belt = StagingBelt::new(1024);
 
             let gui = GUI {
                 window_title: title.to_string(),
@@ -796,6 +797,7 @@ where
                 surface_desc,
                 depth_texture,
                 platform,
+                staging_belt,
                 last_frame: None,
                 last_cursor: None,
                 app,

@@ -20,6 +20,7 @@ where
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface,
+    pub staging_belt: wgpu::util::StagingBelt,
     pub surface_desc: wgpu::SurfaceConfiguration,
     pub depth_texture: wgpu::TextureView,
     pub window: winit::window::Window,
@@ -237,6 +238,7 @@ where
                             &self.adapter,
                             &self.device,
                             &self.queue,
+                            &mut self.staging_belt,
                             &mut rpass,
                         );
 
@@ -244,8 +246,11 @@ where
                             .render(ui.render(), &self.queue, &self.device, &mut rpass)
                             .expect("Rendering failed");
                     }
+                    
+                    self.staging_belt.finish();
                     self.queue.submit(Some(encoder.finish()));
-                    frame.present()
+                    frame.present();
+                    self.staging_belt.recall()
                 }
                 _ => (),
             }
