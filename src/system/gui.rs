@@ -238,7 +238,6 @@ where
                             &self.adapter,
                             &self.device,
                             &self.queue,
-                            &mut self.staging_belt,
                             &mut rpass,
                         );
 
@@ -246,6 +245,17 @@ where
                             .render(ui.render(), &self.queue, &self.device, &mut rpass)
                             .expect("Rendering failed");
                     }
+
+                    self.extension.on_render(
+                        view, 
+                        &self.surface, 
+                        &self.surface_desc, 
+                        &self.adapter, 
+                        &self.device, 
+                        &self.queue, 
+                        &mut encoder, 
+                        &mut self.staging_belt
+                    );
                     
                     self.staging_belt.finish();
                     self.queue.submit(Some(encoder.finish()));

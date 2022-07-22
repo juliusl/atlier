@@ -71,7 +71,7 @@ where
     }
 
     /// Called when a new frame is ready to be rendered
-    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _staging_belt: &mut StagingBelt, _rpass: &mut wgpu::RenderPass<'a>) {
+    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
     }
 }
 
@@ -100,8 +100,12 @@ pub trait Extension {
     /// called before app.run_now(), and before any events are handled by the event_loop
     fn on_run(&'_ mut self, _app_world: &World) {}
 
-    // on_maintain is called after `.maintain()` is called on the world
+    /// on_maintain is called after `.maintain()` is called on the world
     fn on_maintain(&'_ mut self, _app_world: &mut World) {}
+
+    /// on_render for extensions relies on the encoder/staging_belt 
+    fn on_render(&'_ mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _encoder: &mut wgpu::CommandEncoder, _staging_belt: &mut StagingBelt) {
+    }
 
     /// standalone sets up a new specs environment with this extension
     fn standalone<'a, 'b>() -> (World, DispatcherBuilder::<'a, 'b>) {
