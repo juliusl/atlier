@@ -91,6 +91,14 @@ where
             &self.device,
             &self.queue,
         );
+
+        self.extension.on_render_init(
+            &self.surface, 
+            &self.surface_desc, 
+            &self.adapter, 
+            &self.device, 
+            &self.queue
+        );
     }
 
     fn run(&mut self, data: Self::SystemData) {

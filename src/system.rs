@@ -103,6 +103,10 @@ pub trait Extension {
     /// on_maintain is called after `.maintain()` is called on the world
     fn on_maintain(&'_ mut self, _app_world: &mut World) {}
 
+    /// on_render_init is called when the renderer pipeline is being setup
+    fn on_render_init(&mut self, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    }
+
     /// on_render for extensions relies on the encoder/staging_belt 
     fn on_render(&'_ mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _encoder: &mut wgpu::CommandEncoder, _staging_belt: &mut StagingBelt) {
     }
