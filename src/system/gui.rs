@@ -117,6 +117,13 @@ where
             self.app.run_now(&self.app_world);
             self.app_world.maintain();
 
+            self.app_world.insert(wgpu::Color {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            });
+
             self.extension.on_maintain(&mut self.app_world);
         }
 
@@ -214,12 +221,7 @@ where
                                 view,
                                 resolve_target: None,
                                 ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                                        r: 0.1,
-                                        g: 0.2,
-                                        b: 0.3,
-                                        a: 1.0,
-                                    }),
+                                    load: wgpu::LoadOp::Clear(*self.app_world.read_resource::<wgpu::Color>()),
                                     store: true,
                                 },
                             })],
