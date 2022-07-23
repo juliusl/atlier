@@ -75,6 +75,13 @@ where
         // will get instantiated
         let mut app_world = &mut self.app_world;
         let mut app_dispatcher = DispatcherBuilder::new();
+        
+        app_world.insert(wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        });
 
         E::configure_app_world(&mut app_world);
         E::configure_app_systems(&mut app_dispatcher);
@@ -99,13 +106,6 @@ where
             &self.device, 
             &self.queue
         );
-
-        self.app_world.insert(wgpu::Color {
-            r: 0.1,
-            g: 0.2,
-            b: 0.3,
-            a: 1.0,
-        });
     }
 
     fn run(&mut self, data: Self::SystemData) {
