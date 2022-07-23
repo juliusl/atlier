@@ -99,6 +99,13 @@ where
             &self.device, 
             &self.queue
         );
+
+        self.app_world.insert(wgpu::Color {
+            r: 0.1,
+            g: 0.2,
+            b: 0.3,
+            a: 1.0,
+        });
     }
 
     fn run(&mut self, data: Self::SystemData) {
@@ -116,13 +123,6 @@ where
             // main app will always run last because it needs to be on the main thread
             self.app.run_now(&self.app_world);
             self.app_world.maintain();
-
-            self.app_world.insert(wgpu::Color {
-                r: 0.1,
-                g: 0.2,
-                b: 0.3,
-                a: 1.0,
-            });
 
             self.extension.on_maintain(&mut self.app_world);
         }
