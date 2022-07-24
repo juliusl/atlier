@@ -132,6 +132,15 @@ where
     (a, b)
 }
 
+/// Returns a tuple of two default extensions
+pub fn combine_default<A, B>() -> (A, B) 
+where
+    A: Extension + Default,
+    B: Extension + Default, 
+{
+    (A::default(), B::default())
+}
+
 impl<A, B> Extension for (A, B) 
 where
     A: Extension,
