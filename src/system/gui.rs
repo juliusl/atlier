@@ -277,26 +277,11 @@ where
                                 view,
                                 resolve_target: None,
                                 ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(
-                                        *self.app_world.read_resource::<wgpu::Color>(),
-                                    ),
+                                    load: wgpu::LoadOp::Load,
                                     store: true,
                                 },
                             })],
-                            depth_stencil_attachment: {
-                                if self.app.enable_depth_stencil() {
-                                    Some(wgpu::RenderPassDepthStencilAttachment {
-                                        view: &self.depth_texture,
-                                        depth_ops: Some(wgpu::Operations {
-                                            load: wgpu::LoadOp::Clear(1.0),
-                                            store: true,
-                                        }),
-                                        stencil_ops: None,
-                                    })
-                                } else {
-                                    None
-                                }
-                            },
+                            depth_stencil_attachment: None,
                         });
 
                         self.renderer
