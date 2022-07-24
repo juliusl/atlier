@@ -75,7 +75,7 @@ where
         // will get instantiated
         let mut app_world = &mut self.app_world;
         let mut app_dispatcher = DispatcherBuilder::new();
-        
+
         app_world.insert(wgpu::Color {
             r: 0.1,
             g: 0.2,
@@ -100,11 +100,11 @@ where
         );
 
         self.extension.on_render_init(
-            &self.surface, 
-            &self.surface_desc, 
-            &self.adapter, 
-            &self.device, 
-            &self.queue
+            &self.surface,
+            &self.surface_desc,
+            &self.adapter,
+            &self.device,
+            &self.queue,
         );
     }
 
@@ -212,16 +212,16 @@ where
                     let view = &frame
                         .texture
                         .create_view(&wgpu::TextureViewDescriptor::default());
-
                     {
-                        // 282C34
                         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                             label: None,
                             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                                 view,
                                 resolve_target: None,
                                 ops: wgpu::Operations {
-                                    load: wgpu::LoadOp::Clear(*self.app_world.read_resource::<wgpu::Color>()),
+                                    load: wgpu::LoadOp::Clear(
+                                        *self.app_world.read_resource::<wgpu::Color>(),
+                                    ),
                                     store: true,
                                 },
                             })],
@@ -250,14 +250,10 @@ where
                             &self.queue,
                             &mut rpass,
                         );
-
-                        self.renderer
-                            .render(ui.render(), &self.queue, &self.device, &mut rpass)
-                            .expect("Rendering failed");
                     }
-
+                    
                     self.extension.on_render(
-                        view, 
+                        view,
                         {
                             if self.app.enable_depth_stencil() {
                                 Some(&self.depth_texture)
@@ -265,15 +261,49 @@ where
                                 None
                             }
                         },
-                        &self.surface, 
-                        &self.surface_desc, 
-                        &self.adapter, 
-                        &self.device, 
-                        &self.queue, 
-                        &mut encoder, 
-                        &mut self.staging_belt
+                        &self.surface,
+                        &self.surface_desc,
+                        &self.adapter,
+                        &self.device,
+                        &self.queue,
+                        &mut encoder,
+                        &mut self.staging_belt,
                     );
-                    
+
+                    {
+                        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                            label: None,
+                            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                                view,
+                                resolve_target: None,
+                                ops: wgpu::Operations {
+                                    load: wgpu::LoadOp::Clear(
+                                        *self.app_world.read_resource::<wgpu::Color>(),
+                                    ),
+                                    store: true,
+                                },
+                            })],
+                            depth_stencil_attachment: {
+                                if self.app.enable_depth_stencil() {
+                                    Some(wgpu::RenderPassDepthStencilAttachment {
+                                        view: &self.depth_texture,
+                                        depth_ops: Some(wgpu::Operations {
+                                            load: wgpu::LoadOp::Clear(1.0),
+                                            store: true,
+                                        }),
+                                        stencil_ops: None,
+                                    })
+                                } else {
+                                    None
+                                }
+                            },
+                        });
+
+                        self.renderer
+                            .render(ui.render(), &self.queue, &self.device, &mut rpass)
+                            .expect("Rendering failed");
+                    }
+
                     self.staging_belt.finish();
                     self.queue.submit(Some(encoder.finish()));
                     frame.present();
