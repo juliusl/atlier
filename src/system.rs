@@ -17,10 +17,6 @@ use specs::DispatcherBuilder;
 use specs::System;
 use specs::World;
 use specs::WorldExt;
-use wgpu::TextureView;
-use wgpu::util::StagingBelt;
-use winit::event::DeviceEvent;
-use winit::event::DeviceId;
 use std::any::Any;
 use std::cmp::Ordering;
 use std::collections::hash_map::DefaultHasher;
@@ -29,8 +25,12 @@ use std::fs;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::str::from_utf8;
+use wgpu::util::StagingBelt;
+use wgpu::TextureView;
 use window::Hardware;
 use window::WindowContext;
+use winit::event::DeviceEvent;
+use winit::event::DeviceId;
 use winit::event_loop::ControlFlow;
 
 pub use gui::ControlState;
@@ -62,7 +62,14 @@ where
     fn display_ui(&self, ui: &imgui::Ui);
 
     /// Called on start up
-    fn on_init(&mut self, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    fn on_init(
+        &mut self,
+        _surface: &wgpu::Surface,
+        _config: &wgpu::SurfaceConfiguration,
+        _adapter: &wgpu::Adapter,
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+    ) {
     }
 
     /// Enable depth stencil
@@ -71,7 +78,16 @@ where
     }
 
     /// Called when a new frame is ready to be rendered
-    fn on_render<'a>(&'a mut self, _view: &wgpu::TextureView, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _rpass: &mut wgpu::RenderPass<'a>) {
+    fn on_render<'a>(
+        &'a mut self,
+        _view: &wgpu::TextureView,
+        _surface: &wgpu::Surface,
+        _config: &wgpu::SurfaceConfiguration,
+        _adapter: &wgpu::Adapter,
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        _rpass: &mut wgpu::RenderPass<'a>,
+    ) {
     }
 }
 
@@ -94,7 +110,13 @@ pub trait Extension {
     fn on_window_event(&'_ mut self, _app_world: &World, _event: &'_ WindowEvent<'_>) {}
 
     /// on_device_event gets called on every device event
-    fn on_device_event(&'_ mut self, _app_world: &World, _device_id: &'_ DeviceId, _event: &'_ DeviceEvent) {}
+    fn on_device_event(
+        &'_ mut self,
+        _app_world: &World,
+        _device_id: &'_ DeviceId,
+        _event: &'_ DeviceEvent,
+    ) {
+    }
 
     /// on_run is called on every iteration of run
     /// called before app.run_now(), and before any events are handled by the event_loop
@@ -104,15 +126,33 @@ pub trait Extension {
     fn on_maintain(&'_ mut self, _app_world: &mut World) {}
 
     /// on_render_init is called when the renderer pipeline is being setup
-    fn on_render_init(&'_ mut self, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue) {
+    fn on_render_init(
+        &'_ mut self,
+        _surface: &wgpu::Surface,
+        _config: &wgpu::SurfaceConfiguration,
+        _adapter: &wgpu::Adapter,
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+    ) {
     }
 
-    /// on_render for extensions relies on the encoder/staging_belt 
-    fn on_render(&'_ mut self, _view: &wgpu::TextureView, _depth_view: Option<&wgpu::TextureView>, _surface: &wgpu::Surface, _config: &wgpu::SurfaceConfiguration, _adapter: &wgpu::Adapter, _device: &wgpu::Device, _queue: &wgpu::Queue, _encoder: &mut wgpu::CommandEncoder, _staging_belt: &mut StagingBelt) {
+    /// on_render for extensions relies on the encoder/staging_belt
+    fn on_render(
+        &'_ mut self,
+        _view: &wgpu::TextureView,
+        _depth_view: Option<&wgpu::TextureView>,
+        _surface: &wgpu::Surface,
+        _config: &wgpu::SurfaceConfiguration,
+        _adapter: &wgpu::Adapter,
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        _encoder: &mut wgpu::CommandEncoder,
+        _staging_belt: &mut StagingBelt,
+    ) {
     }
 
     /// standalone sets up a new specs environment with this extension
-    fn standalone<'a, 'b>() -> (World, DispatcherBuilder::<'a, 'b>) {
+    fn standalone<'a, 'b>() -> (World, DispatcherBuilder<'a, 'b>) {
         let mut world = World::new();
         let mut dispatcher_builder = DispatcherBuilder::new();
 
@@ -124,27 +164,27 @@ pub trait Extension {
 }
 
 /// Returns a tuple of two extensions, which can be used as a single extension
-pub fn combine<A, B>(a: A, b: B) -> (A, B) 
+pub fn combine<A, B>(a: A, b: B) -> (A, B)
 where
     A: Extension,
-    B: Extension, 
+    B: Extension,
 {
     (a, b)
 }
 
 /// Returns a tuple of two default extensions
-pub fn combine_default<A, B>() -> (A, B) 
+pub fn combine_default<A, B>() -> (A, B)
 where
     A: Extension + Default,
-    B: Extension + Default, 
+    B: Extension + Default,
 {
     (A::default(), B::default())
 }
 
-impl<A, B> Extension for (A, B) 
+impl<A, B> Extension for (A, B)
 where
     A: Extension,
-    B: Extension, 
+    B: Extension,
 {
     fn configure_app_world(world: &mut World) {
         A::configure_app_world(world);
@@ -170,7 +210,12 @@ where
         b.on_window_event(app_world, event);
     }
 
-    fn on_device_event(&'_ mut self, app_world: &World, device_id: &'_ DeviceId, event: &'_ DeviceEvent) {
+    fn on_device_event(
+        &'_ mut self,
+        app_world: &World,
+        device_id: &'_ DeviceId,
+        event: &'_ DeviceEvent,
+    ) {
         let (a, b) = self;
 
         a.on_device_event(app_world, device_id, event);
@@ -191,29 +236,56 @@ where
         b.on_maintain(app_world);
     }
 
-    fn on_render_init(&'_ mut self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration, adapter: &wgpu::Adapter, device: &wgpu::Device, queue: &wgpu::Queue) {
+    fn on_render_init(
+        &'_ mut self,
+        surface: &wgpu::Surface,
+        config: &wgpu::SurfaceConfiguration,
+        adapter: &wgpu::Adapter,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) {
         let (a, b) = self;
 
         a.on_render_init(surface, config, adapter, device, queue);
         b.on_render_init(surface, config, adapter, device, queue);
-    
     }
 
-    fn on_render(&'_ mut self, 
-        view: &wgpu::TextureView, 
-        depth_view: Option<&wgpu::TextureView>, 
-        surface: &wgpu::Surface, 
-        config: &wgpu::SurfaceConfiguration, 
-        adapter: &wgpu::Adapter, 
-        device: &wgpu::Device, 
-        queue: &wgpu::Queue, 
-        encoder: &mut wgpu::CommandEncoder, 
-        staging_belt: &mut StagingBelt) 
-    {
+    fn on_render(
+        &'_ mut self,
+        view: &wgpu::TextureView,
+        depth_view: Option<&wgpu::TextureView>,
+        surface: &wgpu::Surface,
+        config: &wgpu::SurfaceConfiguration,
+        adapter: &wgpu::Adapter,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        encoder: &mut wgpu::CommandEncoder,
+        staging_belt: &mut StagingBelt,
+    ) {
         let (a, b) = self;
 
-        a.on_render(view, depth_view, surface, config, adapter, device, queue, encoder, staging_belt);
-        b.on_render(view, depth_view, surface, config, adapter, device, queue, encoder, staging_belt);
+        a.on_render(
+            view,
+            depth_view,
+            surface,
+            config,
+            adapter,
+            device,
+            queue,
+            encoder,
+            staging_belt,
+        );
+        b.on_render(
+            view,
+            depth_view,
+            surface,
+            config,
+            adapter,
+            device,
+            queue,
+            encoder,
+            staging_belt,
+        );
     }
 }
 
@@ -576,12 +648,15 @@ impl Value {
             Value::BinaryVector(v) => {
                 ui.label_text(label, format!("{} bytes", v.len()));
                 if let Some(text) = from_utf8(v).ok().filter(|s| !s.is_empty()) {
-                    let width = text.split_once("\n")
+                    let width = text
+                        .split_once("\n")
                         .and_then(|(l, ..)| Some(l.len() as f32 * 16.0 + 400.0))
                         .and_then(|w| Some(w.min(1360.0)))
                         .unwrap_or(800.0);
 
-                    if ui.is_item_hovered() && (ui.is_key_down(Key::V) || ui.is_mouse_down(MouseButton::Middle)) {
+                    if ui.is_item_hovered()
+                        && (ui.is_key_down(Key::V) || ui.is_mouse_down(MouseButton::Middle))
+                    {
                         ui.tooltip(|| {
                             if !text.is_empty() {
                                 ui.text("Preview - Right+Click to pin/expand");
@@ -596,7 +671,10 @@ impl Value {
                         });
                     }
 
-                    if ui.is_item_hovered() && !ui.is_key_down(Key::V) && !ui.is_mouse_down(MouseButton::Middle) {
+                    if ui.is_item_hovered()
+                        && !ui.is_key_down(Key::V)
+                        && !ui.is_mouse_down(MouseButton::Middle)
+                    {
                         ui.tooltip_text("Hold+V or Middle+Mouse to peek at content");
                     }
 
@@ -918,8 +996,12 @@ where
 }
 
 pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float; // 1.
-    
-fn create_depth_texture<'a>(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, label: &str) -> TextureView {
+
+fn create_depth_texture<'a>(
+    device: &wgpu::Device,
+    config: &wgpu::SurfaceConfiguration,
+    label: &str,
+) -> TextureView {
     let size = wgpu::Extent3d {
         width: config.width,
         height: config.height,
