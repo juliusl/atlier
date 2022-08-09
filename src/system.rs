@@ -745,11 +745,18 @@ impl Display for Value {
 }
 
 impl Value {
+    /// Converts to Value::Reference(), 
+    /// 
+    /// If self is already Value::Reference(), returns self w/o rehashing
     pub fn to_ref(&self) -> Value {
-        let state = &mut DefaultHasher::default();
-        self.hash(state);
-
-        Value::Reference(state.finish())
+        Value::Reference(match self {
+            Value::Reference(r) => *r,
+            _ => {
+                let state = &mut DefaultHasher::default();
+                self.hash(state);
+                state.finish()
+            }
+        })
     }
 }
 
