@@ -19,6 +19,7 @@ use specs::World;
 use specs::WorldExt;
 use std::any::Any;
 use std::cmp::Ordering;
+use std::collections::BTreeSet;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
 use std::fs;
@@ -544,6 +545,9 @@ impl App for Attribute {
             Value::Symbol(symbol) => {
                 ui.label_text(label, symbol);
             }
+            _ => {
+
+            }
         };
     }
 }
@@ -594,8 +598,8 @@ impl Attribute {
 
 #[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[storage(DenseVecStorage)]
-pub enum Value {
-    Empty,
+pub enum Value { 
+    Empty, 
     Bool(bool),
     TextBuffer(String),
     Int(i32),
@@ -607,6 +611,7 @@ pub enum Value {
     BinaryVector(Vec<u8>),
     Reference(u64),
     Symbol(String),
+    Complex(BTreeSet<String>),
 }
 
 impl Value {
@@ -701,6 +706,9 @@ impl Value {
             }
             Value::Symbol(symbol) => {
                 ui.text(symbol);
+            },
+            _ => {
+
             }
         };
     }
@@ -737,6 +745,9 @@ impl Display for Value {
                 write!(f, "{}", base64::encode(vec))?;
             }
             Value::Reference(_) => return write!(f, "{:?}", self),
+            _ => {
+
+            }
         }
 
         let r = self.to_ref();
@@ -797,6 +808,9 @@ impl Hash for Value {
             }
             Value::Reference(r) => r.hash(state),
             Value::Symbol(r) => r.hash(state),
+            _ => {
+
+            }
         };
     }
 }
