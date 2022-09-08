@@ -808,9 +808,7 @@ impl Hash for Value {
             }
             Value::Reference(r) => r.hash(state),
             Value::Symbol(r) => r.hash(state),
-            _ => {
-
-            }
+            Value::Complex(r) => r.hash(state),
         };
     }
 }
