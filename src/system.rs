@@ -814,18 +814,19 @@ impl Hash for Value {
 }
 
 /// Opens a window for some App/Extension
-pub fn open_window<A, E>(title: &str, width: f64, height: f64, app: A, extension: E)
+pub fn open_window<A, E>(title: &str, width: f64, height: f64, app: A, extension: E, world: Option<World>)
 where
     A: App + for<'c> System<'c>,
     E: Extension + 'static,
 {
+    // This is the backend world
     let mut w = World::new();
     w.insert(ControlState { control_flow: None });
     // Create the new gui_system,
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(title, width, height, app, extension);
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extension, world);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new();
@@ -873,6 +874,7 @@ fn new_gui_system<A, E>(
     height: f64,
     app: A,
     extension: E,
+    world: Option<World>
 ) -> (winit::event_loop::EventLoop<()>, GUI<A, E>)
 where
     A: App + for<'c> System<'c>,
@@ -1001,7 +1003,7 @@ where
                 last_cursor: None,
                 app,
                 extension,
-                app_world: World::new(),
+                app_world: world.unwrap_or(World::new()),
                 app_dispatcher: None,
             };
 
