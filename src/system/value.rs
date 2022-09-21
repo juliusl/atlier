@@ -1,12 +1,21 @@
-use std::collections::BTreeSet;
+use std::{
+    cmp::Ordering,
+    collections::{hash_map::DefaultHasher, BTreeSet},
+    fmt::Display,
+    hash::{Hash, Hasher},
+    str::from_utf8,
+};
 
+use imgui::{Key, MouseButton};
+use serde::{Deserialize, Serialize};
+use specs::{Component, DenseVecStorage};
 
 /// Enumeration of possible attribute values
-/// 
+///
 #[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[storage(DenseVecStorage)]
-pub enum Value { 
-    Empty, 
+pub enum Value {
+    Empty,
     Bool(bool),
     TextBuffer(String),
     Int(i32),
@@ -35,7 +44,7 @@ impl From<BTreeSet<String>> for Value {
 
 impl From<&'static str> for Value {
     /// Symbols are typically declared in code
-    /// 
+    ///
     fn from(s: &'static str) -> Self {
         Value::Symbol(s.to_string())
     }
@@ -133,10 +142,8 @@ impl Value {
             }
             Value::Symbol(symbol) => {
                 ui.text(symbol);
-            },
-            _ => {
-
             }
+            _ => {}
         };
     }
 }
@@ -172,9 +179,7 @@ impl Display for Value {
                 write!(f, "{}", base64::encode(vec))?;
             }
             Value::Reference(_) => return write!(f, "{:?}", self),
-            _ => {
-
-            }
+            _ => {}
         }
 
         let r = self.to_ref();
@@ -183,8 +188,8 @@ impl Display for Value {
 }
 
 impl Value {
-    /// Converts to Value::Reference(), 
-    /// 
+    /// Converts to Value::Reference(),
+    ///
     /// If self is already Value::Reference(), returns self w/o rehashing
     pub fn to_ref(&self) -> Value {
         Value::Reference(match self {
