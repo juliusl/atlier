@@ -50,6 +50,12 @@ impl From<&'static str> for Value {
     }
 }
 
+impl From<usize> for Value {
+    fn from(c: usize) -> Self {
+        Value::Int(c as i32)
+    }
+}
+
 impl Value {
     pub fn edit_ui(&mut self, label: impl AsRef<str>, ui: &imgui::Ui) {
         match self {
