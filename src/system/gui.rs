@@ -9,6 +9,10 @@ use super::create_depth_texture;
 use super::App;
 use super::Extension;
 
+/// Struct that contains all nesscary components for launching a Window and event loop,
+/// 
+/// This type implements a thread-local specs System that drives the main event/gfx pipeline,
+/// 
 pub struct GUI<A, E>
 where
     A: App + for<'c> System<'c>,

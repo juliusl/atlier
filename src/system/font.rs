@@ -1,5 +1,8 @@
 
-
+/// Helper function to read the CascadiaCode font into memory,
+/// 
+/// Designed to be Cross-Compat with MacOS and Windows.
+/// 
 pub fn cascadia_code() -> Option<Vec<u8>>{
     if let Ok(home) = std::env::var("HOME") {
         let path =&format!("{}/Library/Fonts/CascadiaCode.ttf", home);
@@ -15,6 +18,10 @@ pub fn cascadia_code() -> Option<Vec<u8>>{
     }
 }
 
+/// Helper function to read the Monaco font into memory,
+/// 
+/// Designed to be Cross-Compat with MacOS and Windows.
+/// 
 pub fn monaco() -> Option<Vec<u8>>{
     if let Ok(r) = std::fs::read(std::path::Path::new("/System/Library/Fonts/Monaco.ttf")) {
         Some(r)
@@ -25,6 +32,11 @@ pub fn monaco() -> Option<Vec<u8>>{
     }
 }
 
+/// Helper function to read the Segoe UI font into memory, 
+/// 
+/// Designed to be Cross-Compat with MacOS and Windows.
+///  
+/// 
 pub fn segoe_ui() -> Option<Vec<u8>>{
     if let Ok(r) = std::fs::read(std::path::Path::new("/System/Library/Fonts/segoeui.ttf")) {
         Some(r)

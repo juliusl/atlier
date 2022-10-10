@@ -10,8 +10,8 @@ use imgui::{Key, MouseButton};
 use serde::{Deserialize, Serialize};
 use specs::{Component, DenseVecStorage};
 
-/// Enumeration of possible attribute values
-///
+/// Enumeration of possible attribute value types.
+/// 
 #[derive(Debug, Clone, Component, Serialize, Deserialize, PartialEq, PartialOrd)]
 #[storage(DenseVecStorage)]
 pub enum Value {
