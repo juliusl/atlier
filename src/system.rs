@@ -22,6 +22,7 @@ pub use value::Value;
 
 pub use crate::app::App;
 pub use crate::extension::Extension;
+pub use crate::combine::{combine, combine_default};
 
 /// Opens a window for some App/Extension,
 ///
