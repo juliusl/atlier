@@ -10,9 +10,9 @@ use super::App;
 use super::Extension;
 
 /// Struct that contains all nesscary components for launching a Window and event loop,
-/// 
+///
 /// This type implements a thread-local specs System that drives the main event/gfx pipeline,
-/// 
+///
 pub struct GUI<A, E>
 where
     A: App + for<'c> System<'c>,
@@ -39,6 +39,7 @@ where
     pub app: A,
     pub extension: E,
     pub app_world: World,
+    pub app_dispatcher_builder: Option<DispatcherBuilder<'static, 'static>>,
     pub app_dispatcher: Option<Dispatcher<'static, 'static>>,
 }
 
@@ -78,7 +79,10 @@ where
         // this is where the extension method is called for the first time and resources/components
         // will get instantiated
         let mut app_world = &mut self.app_world;
-        let mut app_dispatcher = DispatcherBuilder::new();
+        let mut app_dispatcher = self
+            .app_dispatcher_builder
+            .take()
+            .unwrap_or(DispatcherBuilder::new());
 
         app_world.insert(wgpu::Color {
             r: 0.1,
@@ -255,7 +259,7 @@ where
                             &mut rpass,
                         );
                     }
-                    
+
                     self.extension.on_render(
                         view,
                         {

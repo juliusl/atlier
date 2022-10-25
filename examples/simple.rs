@@ -9,6 +9,7 @@ fn main() {
         Demo::default(),
         DemoExtension::default(),
         None,
+        None,
     )
 }
 

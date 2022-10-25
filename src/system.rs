@@ -33,6 +33,7 @@ pub fn open_window<A, E>(
     app: A,
     extension: E,
     world: Option<World>,
+    dispatcher_builder: Option<DispatcherBuilder<'static, 'static>>,
 ) where
     A: App + for<'c> System<'c>,
     E: Extension + 'static,
@@ -44,7 +45,7 @@ pub fn open_window<A, E>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(title, width, height, app, extension, world);
+    let (event_loop, gui) = new_gui_system(title, width, height, app, extension, world, dispatcher_builder);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new();
@@ -94,6 +95,7 @@ fn new_gui_system<A, E>(
     app: A,
     extension: E,
     world: Option<World>,
+    dispatcher_builder: Option<DispatcherBuilder<'static, 'static>>,
 ) -> (winit::event_loop::EventLoop<()>, GUI<A, E>)
 where
     A: App + for<'c> System<'c>,
@@ -223,6 +225,7 @@ where
                 app,
                 extension,
                 app_world: world.unwrap_or(World::new()),
+                app_dispatcher_builder: dispatcher_builder,
                 app_dispatcher: None,
             };
 
