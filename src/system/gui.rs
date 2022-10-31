@@ -194,6 +194,9 @@ where
                     self.platform
                         .prepare_frame(self.imgui.io_mut(), &self.window)
                         .expect("Failed to prepare frame");
+                    
+                    // Edit style
+                    self.app.edit_style(self.imgui.style_mut());
 
                     let ui = self.imgui.frame();
                     self.extension.on_ui(&self.app_world, &ui);
