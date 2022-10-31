@@ -28,16 +28,12 @@ impl Default for WindowContext {
 }
 
 impl WindowContext {
-    pub fn new(title: &str, width: f64, height: f64) -> Self {
+    pub fn new(title: &str) -> Self {
         let event_loop = EventLoop::new();
         let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
 
         let (window, size, surface, hidpi_factor, font_size) = {
             let window = Window::new(&event_loop).unwrap();
-            window.set_inner_size(LogicalSize {
-                 width,
-                 height,
-            });
             window.set_title(&title);
             let size = window.inner_size();
 

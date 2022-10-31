@@ -28,8 +28,6 @@ pub use crate::combine::{combine, combine_default};
 ///
 pub fn open_window<A, E>(
     title: &str,
-    width: f64,
-    height: f64,
     app: A,
     extension: E,
     world: Option<World>,
@@ -45,7 +43,7 @@ pub fn open_window<A, E>(
     // after this point no changes can be made to gui or event_loop
     // This application either starts up, or panics here
     // As part of the gui system setup, the gui system will also begin setup of the application system
-    let (event_loop, gui) = new_gui_system(title, width, height, app, extension, world, dispatcher_builder);
+    let (event_loop, gui) = new_gui_system(title, app, extension, world, dispatcher_builder);
 
     // Create the specs dispatcher
     let mut dispatcher = DispatcherBuilder::new();
@@ -90,8 +88,6 @@ pub fn open_window<A, E>(
 /// 
 fn new_gui_system<A, E>(
     title: &str,
-    width: f64,
-    height: f64,
     app: A,
     extension: E,
     world: Option<World>,
@@ -101,7 +97,7 @@ where
     A: App + for<'c> System<'c>,
     E: Extension + 'static,
 {
-    let window_context = window::WindowContext::new(title, width, height);
+    let window_context = window::WindowContext::new(title);
     let setup = move || {
         if let Hardware {
             window_context:

@@ -13,9 +13,6 @@ where
         &[1920.0, 1080.0]
     }
 
-    /// Edit imgui context
-    fn edit_style(&self, _context: &mut imgui::Style) {}
-
     /// Show ui that can edit self
     fn edit_ui(&mut self, ui: &imgui::Ui);
 

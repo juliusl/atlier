@@ -4,8 +4,6 @@ use specs::System;
 fn main() {
     atlier::prelude::open_window(
         "",
-        1920.0,
-        1080.0,
         Demo::default(),
         DemoExtension::default(),
         None,
