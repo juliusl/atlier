@@ -35,8 +35,11 @@ impl WindowContext {
         let (window, size, surface, hidpi_factor, font_size) = {
             let window = Window::new(&event_loop).unwrap();
             window.set_title(&title);
-
-            window.set_inner_size(LogicalSize::new(1920.0, 1080.0));
+            
+            if std::env::consts::OS == "linux" {
+                // Linux needs this explicitly defined for wayland to work w/ async
+                window.set_inner_size(LogicalSize::new(1920.0, 1080.0));
+            }
 
             let size = window.inner_size();
 
