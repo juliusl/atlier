@@ -1,5 +1,4 @@
 use futures::executor::block_on;
-use winit::dpi::LogicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::Window;
 
