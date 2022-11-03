@@ -137,7 +137,7 @@ where
 
         let mut control_state = data.control_state;
         for GUIUpdate { event } in data.update.join() {
-            control_state.control_flow = Some(ControlFlow::Poll);
+            control_state.control_flow = Some(ControlFlow::Wait);
 
             if let Event::WindowEvent {
                 event: window_event,
