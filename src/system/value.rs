@@ -30,6 +30,117 @@ pub enum Value {
     Complex(BTreeSet<String>),
 }
 
+impl Value {
+    /// Returns an empty tuple if value is an Empty type,
+    /// 
+    pub fn empty(&self) -> Option<()> {
+        match self {
+            Self::Empty => Some(()),
+            _ => None
+        }
+    }
+
+    /// Returns a bool if this value is a bool literal,
+    /// 
+    pub fn bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(b) => Some(*b),
+            _ => None
+        }
+    }
+
+    /// Returns a String if this value is a text buffer,
+    /// 
+    pub fn text(&self) -> Option<String> {
+        match self {
+            Self::TextBuffer(buffer) => Some(buffer.to_string()),
+            _ => None
+        }
+    }
+
+    /// Returns an i32 if this value is an int,
+    /// 
+    pub fn int(&self) -> Option<i32> {
+        match self {
+            Self::Int(i) => Some(*i), 
+            _ => None 
+        }
+    }
+
+    /// Returns an tuple (i32, i32) if this value is an int pair,
+    /// 
+    pub fn int_pair(&self) -> Option<(i32, i32)> {
+        match self {
+            Self::IntPair(a, b) => Some((*a, *b)), 
+            _ => None,
+        }
+    }
+
+    /// Returns a tuple (i32, i32, i32) if this value is an int range,
+    /// 
+    pub fn int_range(&self) -> Option<(i32, i32, i32)> {
+        match self {
+            Self::IntRange(a, b, c) => Some((*a, *b, *c)), 
+            _ => None,
+        }
+    }
+
+    /// Returns an f32 if this value is a float,
+    /// 
+    pub fn float(&self) -> Option<f32> {
+        match self {
+            Self::Float(a) => Some(*a),
+            _ => None,
+        }
+    }
+
+    /// Returns a tuple (f32, f32) if this value is a float pair, 
+    /// 
+    pub fn float_pair(&self) -> Option<(f32, f32)> {
+        match self {
+            Self::FloatPair(a, b) => Some((*a, *b)),
+            _ => None,
+        }
+    }
+
+    /// Returns a tuple (f32, f32, f32) if this value is a float range,
+    /// 
+    pub fn float_range(&self) -> Option<(f32, f32, f32)> {
+        match self {
+            Self::FloatRange(a, b, c) => Some((*a, *b, *c)),
+            _ => None,
+        }
+    }
+
+
+    /// Returns a STring if this value is a symbol,
+    /// 
+    pub fn symbol(&self) -> Option<String> {
+        match self {
+            Self::Symbol(symbol) => Some(symbol.to_string()),
+            _ => None,
+        }
+    }
+    
+    /// Returns a vector of bytes if this values is a binary vector,
+    /// 
+    pub fn binary(&self) -> Option<Vec<u8>> {
+        match self {
+            Self::BinaryVector(vec) => Some(vec.to_vec()),
+            _ => None, 
+        }
+    }
+
+    /// Returns a btree set if this value is a complex,
+    /// 
+    pub fn complex(&self) -> Option<BTreeSet<String>> {
+        match self {
+            Self::Complex(c) => Some(c.clone()) ,
+            _ => None,
+        }
+    }
+}
+
 impl From<bool> for Value {
     fn from(b: bool) -> Self {
         Value::Bool(b)
