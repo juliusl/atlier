@@ -37,6 +37,11 @@ where
         B::configure_app_systems(dispatcher);
     }
 
+    fn configure_imgui_context(context: &mut imgui::Context) {
+        A::configure_imgui_context(context);
+        B::configure_imgui_context(context);
+    }
+
     fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>) {
         let (a, b) = self;
 
