@@ -93,7 +93,8 @@ where
 
         E::configure_app_world(&mut app_world);
         E::configure_app_systems(&mut app_dispatcher);
-
+        E::configure_imgui_context(&mut self.imgui);
+        
         <A::SystemData as DynamicSystemData>::setup(&self.app.accessor(), app_world);
         let mut dispatcher = app_dispatcher.build();
         dispatcher.setup(&mut app_world);

@@ -14,6 +14,10 @@ pub trait Extension {
     /// register systems that will run on the app world
     fn configure_app_systems(_dispatcher: &mut DispatcherBuilder) {}
 
+    /// Configures imgui context, called on gui setup
+    /// 
+    fn configure_imgui_context(context: &mut imgui::Context) {}
+
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
@@ -62,16 +66,5 @@ pub trait Extension {
         _encoder: &mut wgpu::CommandEncoder,
         _staging_belt: &mut StagingBelt,
     ) {
-    }
-
-    /// standalone sets up a new specs environment with this extension
-    fn standalone<'a, 'b>() -> (World, DispatcherBuilder<'a, 'b>) {
-        let mut world = World::new();
-        let mut dispatcher_builder = DispatcherBuilder::new();
-
-        Self::configure_app_world(&mut world);
-        Self::configure_app_systems(&mut dispatcher_builder);
-
-        (world, dispatcher_builder)
     }
 }
