@@ -78,8 +78,9 @@ impl From<WindowContext> for Hardware {
         let hardware = move || {
             if let (Some(instance), Some(surface), Some(physical_size)) = (context.instance, context.surface, context.physical_size) {
                 let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::HighPerformance,
                     compatible_surface: Some(&surface),
+                    power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: true,
                     ..Default::default()
                 }))
                 .unwrap();
@@ -92,6 +93,7 @@ impl From<WindowContext> for Hardware {
                     format: surface.get_supported_formats(&adapter)[0],
                     width: physical_size.width,
                     height: physical_size.height,
+                    alpha_mode: wgpu::CompositeAlphaMode::Auto,
                     present_mode: wgpu::PresentMode::Fifo,
                 };
         

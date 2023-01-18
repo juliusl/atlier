@@ -1,4 +1,4 @@
-use specs::{DispatcherBuilder, World, WorldExt};
+use specs::{DispatcherBuilder, World};
 use wgpu::util::StagingBelt;
 use winit::event::{WindowEvent, DeviceEvent, DeviceId};
 
@@ -16,12 +16,12 @@ pub trait Extension {
 
     /// Configures imgui context, called on gui setup
     /// 
-    fn configure_imgui_context(context: &mut imgui::Context) {}
+    fn configure_imgui_context(_context: &mut imgui::Context) {}
 
     /// on_ui gets called inside the event loop when the ui is ready
     /// app_world is called here so that systems that aren't already added
     /// have a chance to call run_now, (Note!! this is called on frame processing, use with care)
-    fn on_ui(&'_ mut self, _app_world: &World, _ui: &'_ imgui::Ui<'_>) {}
+    fn on_ui(&'_ mut self, _app_world: &World, _ui: &'_ imgui::Ui) {}
 
     /// on_window_event gets called on every window event
     fn on_window_event(&'_ mut self, _app_world: &World, _event: &'_ WindowEvent<'_>) {}

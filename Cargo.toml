@@ -9,11 +9,11 @@ resolver = "2"
 [dependencies]
 specs = { version = "0.18.0", features = ["default", "derive", "serde"] }
 futures = "0.3.17"
-imgui = { version = "0.8.0", features = [ "tables-api" ] }
-imgui-wgpu = "0.20.0"
+imgui = { version = "0.9.0", features = [ "tables-api" ] }
+imgui-wgpu = "0.21.0"
 serde = "1.0.137"
 base64 = "0.13.0"
-winit = "0.26"
-imgui-winit-support = { version = "0.8", default-features = false, features = ["winit-26"] }
-raw-window-handle = "0.4"
-wgpu = "0.13"
+winit = "0.27.5"
+imgui-winit-support = "0.9.0"
+raw-window-handle = "0.5"
+wgpu = "0.14.2"

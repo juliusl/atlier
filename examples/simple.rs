@@ -36,7 +36,11 @@ impl App for Demo {
 
                 })
             })
-        })
+        });
+
+        ui.window("Test").build(|| {
+            ui.text("Hello World");
+        });
     }
 }
 

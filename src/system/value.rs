@@ -183,10 +183,10 @@ impl Value {
                 ui.checkbox(label, bool);
             }
             Value::FloatRange(f1, f2, f3) => {
-                imgui::Slider::new(label, *f2, *f3).build(ui, f1);
+                ui.slider_config(label, *f2, *f3).build(f1);
             }
             Value::IntRange(i1, i2, i3) => {
-                imgui::Slider::new(label, *i2, *i3).build(ui, i1);
+                ui.slider_config(label, *i2, *i3).build(i1);
             }
             Value::TextBuffer(text) => {
                 ui.input_text(label, text).build();

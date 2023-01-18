@@ -307,7 +307,7 @@ where
                         });
 
                         self.renderer
-                            .render(ui.render(), &self.queue, &self.device, &mut rpass)
+                            .render(self.imgui.render(), &self.queue, &self.device, &mut rpass)
                             .expect("Rendering failed");
                     }
 

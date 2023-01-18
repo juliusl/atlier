@@ -42,7 +42,7 @@ where
         B::configure_imgui_context(context);
     }
 
-    fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui<'_>) {
+    fn on_ui(&'_ mut self, app_world: &World, ui: &'_ imgui::Ui) {
         let (a, b) = self;
 
         a.on_ui(app_world, ui);
